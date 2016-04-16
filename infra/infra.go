@@ -30,6 +30,9 @@ var nodeIndexMap map[string]*node.Node
 /* Hashmap for connections to servers */
 var connectionMap map[string]*net.TCPConn
 
+/* Node for the local host */
+var localNode *node.Node
+
 func listenerThread(conn *net.TCPConn) {
 	message := make([]byte, 128)
 	defer conn.Close()  // close connection at exit
@@ -51,12 +54,16 @@ func listenerThread(conn *net.TCPConn) {
 }
 
 func SendUnicast(dest string, message string) {
+	if dest == localNode.Hostname {
+		fmt.Printf("New message received from %s: %s\n", localNode.Uuid, message)
+		return
+	}
 	conn := connectionMap[dest]
 	_, err := conn.Write([]byte(message))
 	checkError(err)
 }
 
-func connectToNode(node *node.Node, localHost string) {
+func connectToNode(node *node.Node) {
 	/* Get the remote node TCP address */
 	service := fmt.Sprintf("%s:%d", node.Ip, node.Port)
 	tcpAddr, err := net.ResolveTCPAddr("tcp4", service)
@@ -67,7 +74,7 @@ func connectToNode(node *node.Node, localHost string) {
 	checkError(err)
 
 	/* Send a connection message to identify self */
-	connectionMessage := fmt.Sprintf("HELO MESSAGE FROM %s CONNECT", localHost)
+	connectionMessage := fmt.Sprintf("HELO MESSAGE FROM %s CONNECT", localNode.Hostname)
 	_, err = conn.Write([]byte(connectionMessage))
 	checkError(err)
 
@@ -76,24 +83,22 @@ func connectToNode(node *node.Node, localHost string) {
 	go listenerThread(conn)
 }
 
-func connectToOtherServers(pYamlConfig *YamlConfig, localHost string) {
+func connectToOtherServers(pYamlConfig *YamlConfig) {
 	for _, each := range pYamlConfig.Servers {
-		if each.Hostname > localHost {
+		if each.Hostname > localNode.Hostname {
 			remoteNode := nodeIndexMap[each.Hostname]
-			connectToNode(remoteNode, localHost)
+			connectToNode(remoteNode)
 			fmt.Println("Connected to", remoteNode.Hostname, " at ", remoteNode.Uuid)
 		}
 	}
 }
 
-func acceptConnectionsFromOtherServers(pYamlConfig *YamlConfig, localHost string) {
-	localNode := nodeIndexMap[localHost]
-
+func acceptConnectionsFromOtherServers(pYamlConfig *YamlConfig) {
 	/* Counter for how many servers will connect to me */
 	connectionCount := 0
 	/* Every server before localHost in the list will attempt to connect */
 	for _, each := range pYamlConfig.Servers {
-                if each.Hostname < localHost {
+                if each.Hostname < localNode.Hostname {
 			connectionCount++
                 }
         }
@@ -151,12 +156,12 @@ func InitNetwork(localHost string) {
 	    fmt.Println("Key:", key, "Value:", value)
 	}
 
-	localNode := nodeIndexMap[localHost]
+	localNode = nodeIndexMap[localHost]
 	//localNode = yamlConfig.Servers[localHostIndex]
 	fmt.Printf("Local Host is [%s] at %s:%d\n", localNode.Hostname, localNode.Ip, localNode.Port)
 	fmt.Printf("Keys are: %+v\n", localNode.Keys)
-	acceptConnectionsFromOtherServers(&yamlConfig, localHost)
-	connectToOtherServers(&yamlConfig, localHost)
+	acceptConnectionsFromOtherServers(&yamlConfig)
+	connectToOtherServers(&yamlConfig)
 	fmt.Println("***************************************************")
 	fmt.Println("****** Done all conections and back to main *******")
 	fmt.Println("***************************************************")
