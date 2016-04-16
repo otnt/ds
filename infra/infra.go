@@ -6,7 +6,7 @@ import (
 	"os"
 	"net"
 	"strings"
-	"github.com/melhalab/node"
+	"github.com/otnt/ds/node"
 	"gopkg.in/yaml.v2"
 )
 

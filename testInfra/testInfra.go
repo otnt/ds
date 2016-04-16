@@ -6,7 +6,7 @@ import (
 	"os"
 	"bufio"
 	"time"
-	"github.com/melhalab/infra"
+	"github.com/otnt/ds/infra"
 )	
 
 func main() {
