@@ -31,9 +31,12 @@ var connectionMap map[string]*net.TCPConn
 /* Node for the local host */
 var localNode *node.Node
 
+var ReceivedBuffer chan message.Message
+
 func listenerThread(conn *net.TCPConn) {
 	readFromSocket := make([]byte, 256)
 	defer conn.Close()  // close connection at exit
+	ReceivedBuffer = make(chan message.Message)
 	for {
 		read_len, err := conn.Read(readFromSocket)
 		if err != nil {
@@ -47,7 +50,7 @@ func listenerThread(conn *net.TCPConn) {
 			var rcvMessage message.Message
 			err := message.Unmarshal(readFromSocket[:read_len], &rcvMessage)
 			checkError(err)
-			fmt.Printf("[%s] %s: %s\n", message.GetKind(&rcvMessage), message.GetSrc(&rcvMessage), message.GetData(&rcvMessage))
+			go func() { ReceivedBuffer <- rcvMessage }()
 		}
 		/* Clear message for next read */
 		readFromSocket = make([]byte, 256)
@@ -168,6 +171,15 @@ func InitNetwork(localHost string) {
 	fmt.Println("***************************************************")
 	fmt.Println("****** Done all conections and back to main *******")
 	fmt.Println("***************************************************")
+}
+
+func GetLocalNode() *node.Node {
+	return localNode
+}
+
+func CheckIncomingMessages() message.Message {
+	newMessage := <- ReceivedBuffer
+	return newMessage
 }
 
 func checkError(err error) {
