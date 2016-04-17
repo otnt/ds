@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"time"
 	"github.com/otnt/ds/infra"
+	"github.com/otnt/ds/message"
 )	
 
 func main() {
@@ -20,6 +21,26 @@ func main() {
         
         time.Sleep(500)
 	fmt.Println("You can start sending messages")
+	fmt.Println("<dest> <kind> <data to send>")
+	go receiverThread()
+	go senderApp()
+
+	/* DON'T CARE ABOUT THIS -- Dummy code to make the application block here and not exit */
+	dummyChan := make (chan string)
+	dummyString := <- dummyChan
+	fmt.Println(dummyString)
+}
+
+func receiverThread() {
+	for {
+		newMessage := infra.CheckIncomingMessages()
+		fmt.Printf("TestInfra [Kind: %s] %s: %s\n", message.GetKind(&newMessage), message.GetSrc(&newMessage), message.GetData(&newMessage))
+	}
+}
+
+
+
+func senderApp() {
 	reader:=bufio.NewReader(os.Stdin)
         for {
 		input, _ := reader.ReadString('\n')
