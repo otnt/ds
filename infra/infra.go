@@ -8,7 +8,6 @@ import (
 	"strings"
 	"github.com/otnt/ds/node"
 	"github.com/otnt/ds/message"
-	"encoding/json"
 	"gopkg.in/yaml.v2"
 )
 
@@ -46,7 +45,7 @@ func listenerThread(conn *net.TCPConn) {
 			break
 		} else {
 			var rcvMessage message.Message
-			err := json.Unmarshal(readFromSocket[:read_len], &rcvMessage)
+			err := message.Unmarshal(readFromSocket[:read_len], &rcvMessage)
 			checkError(err)
 			fmt.Printf("[%s] %s: %s\n", message.GetKind(&rcvMessage), message.GetSrc(&rcvMessage), message.GetData(&rcvMessage))
 		}
