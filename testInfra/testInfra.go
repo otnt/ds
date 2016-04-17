@@ -23,9 +23,11 @@ func main() {
 	reader:=bufio.NewReader(os.Stdin)
         for {
 		input, _ := reader.ReadString('\n')
-		s_input := strings.SplitN(input, " ", 2)
+		input = input[:len(input)-1]
+		s_input := strings.SplitN(input, " ", 3)
 		dest:= s_input[0]
-		message:= s_input[1]
-		infra.SendUnicast(dest, message)
+		kind := s_input[1]
+		data := s_input[2]
+		infra.SendUnicast(dest, data, kind)
         }
 }

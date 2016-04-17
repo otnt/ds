@@ -7,6 +7,8 @@ import (
 	"net"
 	"strings"
 	"github.com/otnt/ds/node"
+	"github.com/otnt/ds/message"
+	"encoding/json"
 	"gopkg.in/yaml.v2"
 )
 
@@ -18,9 +20,6 @@ func (c *YamlConfig) ParseYaml(fileName string) error {
 	data, err := ioutil.ReadFile(fileName)
 	checkError(err)
 	err = yaml.Unmarshal(data, c)
-	fmt.Println("Printing yamlConfig")
-	fmt.Printf("%+v\n", c)
-	fmt.Println("Done Printing yamlConfig")
 	return err
 }
 
@@ -34,10 +33,10 @@ var connectionMap map[string]*net.TCPConn
 var localNode *node.Node
 
 func listenerThread(conn *net.TCPConn) {
-	message := make([]byte, 128)
+	readFromSocket := make([]byte, 256)
 	defer conn.Close()  // close connection at exit
 	for {
-		read_len, err := conn.Read(message)
+		read_len, err := conn.Read(readFromSocket)
 		if err != nil {
 			fmt.Println(err)
 			break
@@ -46,20 +45,25 @@ func listenerThread(conn *net.TCPConn) {
 			/* Connection closed by the client, exit thread */
 			break
 		} else {
-			fmt.Printf("New message received from %s: %s\n", conn.RemoteAddr(), string(message))
+			var rcvMessage message.Message
+			err := json.Unmarshal(readFromSocket[:read_len], &rcvMessage)
+			checkError(err)
+			fmt.Printf("[%s] %s: %s\n", message.GetKind(&rcvMessage), message.GetSrc(&rcvMessage), message.GetData(&rcvMessage))
 		}
 		/* Clear message for next read */
-		message = make([]byte, 128)
+		readFromSocket = make([]byte, 256)
 	}
 }
 
-func SendUnicast(dest string, message string) {
+func SendUnicast(dest string, data string, kind string) {
 	if dest == localNode.Hostname {
-		fmt.Printf("New message received from %s: %s\n", localNode.Uuid, message)
+		fmt.Printf("New message received from %s [%s]: %s\n", localNode.Hostname, kind, data)
 		return
 	}
+	
+	sendMessage := message.NewMessage(localNode.Hostname, dest, data, kind)
 	conn := connectionMap[dest]
-	_, err := conn.Write([]byte(message))
+	_, err := conn.Write(message.Marshal(&sendMessage))
 	checkError(err)
 }
 
