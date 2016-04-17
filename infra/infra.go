@@ -58,12 +58,12 @@ func listenerThread(conn *net.TCPConn) {
 }
 
 func SendUnicast(dest string, data string, kind string) {
-	if dest == localNode.Hostname {
-		fmt.Printf("New message received from %s [%s]: %s\n", localNode.Hostname, kind, data)
-		return
-	}
 	
 	sendMessage := message.NewMessage(localNode.Hostname, dest, data, kind)
+	if dest == localNode.Hostname {
+		go func() { ReceivedBuffer <- sendMessage }()
+		return
+	}
 	conn := connectionMap[dest]
 	_, err := conn.Write(message.Marshal(&sendMessage))
 	checkError(err)
