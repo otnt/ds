@@ -3,8 +3,17 @@ package webService
 import (
 	"encoding/json"
 	"github.com/gorilla/mux"
+	ch "github.com/otnt/ds/consistentHashing"
+	infra "github.com/otnt/ds/infra"
 	"net/http"
 	"fmt"
+	"time"
+)
+
+var ring *ch.Ring
+
+const (
+	MSG_KIND = "forward"
 )
 
 type WebService struct {
@@ -12,9 +21,14 @@ type WebService struct {
 	router *mux.Router
 }
 
-func (ws *WebService) Run() {
+func (ws *WebService) Run(r *ch.Ring) {
+	ring = r
 	ws.initRouter()
 	ws.initHttp()
+	ws.initListener()
+
+	block := make(chan bool)
+	<-block
 }
 
 // Create router and serve the request
@@ -24,15 +38,29 @@ func (ws *WebService) initRouter() {
 	ws.router.HandleFunc("/post", createNewPost).Methods("POST")
 }
 
+// Create HTTP listener
 func (ws *WebService) initHttp() {
-	// Create HTTP listener
-	http.Handle("/", ws.router)
-	err := http.ListenAndServe(fmt.Sprintf(":%d", ws.Port), nil)
-	if err != nil {
-		fmt.Println(err)
-	} else {
-		fmt.Printf("Listening on port %d\n", ws.Port)
-	}
+	go func() {
+		http.Handle("/", ws.router)
+		err := http.ListenAndServe(fmt.Sprintf(":%d", ws.Port), nil)
+		if err != nil {
+			panic(err)
+		}
+	}()
+}
+
+// Listen to incoming forward request, to save data into local db
+func (ws *WebService) initListener() {
+	go func() {
+		for {
+			select {
+			case msg := <-infra.ReceivedBuffer:
+				fmt.Printf("get msg %+v\n", msg)
+			case <-time.After(time.Millisecond * 1):
+				continue
+			}
+		}
+	}()
 }
 
 // Fetch all posts in reverse chronological order
@@ -46,9 +74,47 @@ func fetchAllPosts(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// New post request
+type newPost struct {
+	ImageData string
+}
+
+func (np *newPost) String() string {
+	return fmt.Sprintf("%s", np.ImageData)
+}
+
+
 // Create a new post.
 // It forwards the request to primary node of the coming post.
 func createNewPost(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("Not implmented yet"))
-	w.WriteHeader(http.StatusNotImplemented)
+	// get post data
+	var np newPost
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&np)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("%q\n", err)))
+		return
+	}
+
+	// look for primary node
+	var length int
+	if len(np.ImageData) > 100 {
+		length = 100
+	} else {
+		length = len(np.ImageData)
+	}
+	data := np.ImageData[:length]
+	primary, err := ring.LookUp(data)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("%q\n", err)))
+		return
+	}
+
+	//forward message
+	infra.SendUnicast(primary.Hostname, MSG_KIND, np.String())
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("ok\n"))
 }
