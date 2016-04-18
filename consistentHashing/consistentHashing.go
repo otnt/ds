@@ -2,11 +2,12 @@ package consistentHashing
 
 import (
 	"errors"
-	//"fmt"
+	"fmt"
 	rbte "github.com/emirpasic/gods/examples"
 	rbt "github.com/emirpasic/gods/trees/redblacktree"
 	"github.com/otnt/ds/node"
 	"sync"
+	"crypto/sha1"
 )
 
 //The abstruct structure of consistent hash ring.
@@ -27,6 +28,14 @@ func NewRing() (ring *Ring) {
 		},
 	}
 	return
+}
+
+// Get the hash value of data
+func (ring *Ring) hash(value string) string {
+		bytes := []byte(value)
+		h := sha1.New()
+		h.Write(bytes)
+		return fmt.Sprintf("%x", h.Sum(nil))
 }
 
 //Add a new Node to consistent hashing ring.
@@ -103,10 +112,11 @@ func (ring *Ring) RemoveAsync(removeChan <-chan *node.Node, complete chan<- *nod
 // If the input key is the same as some Node's key, then the result is
 // that exact Node.
 //
-// @param key: string of key
+// @param data: data to be stored
 // @return: return the node if such successor founded, otherwise an error is
 //          given
-func (ring *Ring) LookUp(key string) (*node.Node, error) {
+func (ring *Ring) LookUp(data string) (*node.Node, error) {
+	key := ring.hash(data)
 	return ring.getCeilingOf(key)
 }
 
