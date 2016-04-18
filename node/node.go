@@ -8,6 +8,7 @@ import (
 type Node struct {
 	//each Node is globally identified by ip:port
 	//the 'ip:port' string is the uuid of this Node
+	Hostname string
 	Ip   string
 	Port int
 	Uuid string
@@ -29,8 +30,9 @@ type Node struct {
 	Saved bool
 }
 
-func NewNode(ip string, port int, vnodeNum int) (node *Node) {
+func NewNode(hostname string, ip string, port int, vnodeNum int) (node *Node) {
 	node = &Node{}
+	node.Hostname = hostname
 	node.Ip = ip
 	node.Port = port
 	node.Uuid = fmt.Sprintf("%s:%d", ip, port)
