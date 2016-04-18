@@ -9,12 +9,13 @@ import (
 	"os"
 	"github.com/otnt/ds/node"
 	"time"
+	"strconv"
 )
 
 func main() {
 	//init infra
-	if len(os.Args) != 2 {
-		fmt.Fprintf(os.Stderr, "Usage: %s Hostname\n", os.Args[0])
+	if len(os.Args) != 3 {
+		fmt.Fprintf(os.Stderr, "Usage: %s Hostname Port\n", os.Args[0])
 		os.Exit(1)
 	}
 	localHost := os.Args[1]
@@ -32,6 +33,10 @@ func main() {
 	}
 
 	//init web service
-	ws:= webService.WebService{Port:8081}
+	port, err := strconv.Atoi(os.Args[2])
+	if err != nil {
+		panic(err)
+	}
+	ws:= webService.WebService{Port: port}
 	ws.Run(ring)
 }

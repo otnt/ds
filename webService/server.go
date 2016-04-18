@@ -55,7 +55,7 @@ func (ws *WebService) initListener() {
 		for {
 			select {
 			case msg := <-infra.ReceivedBuffer:
-				fmt.Printf("get msg %+v\n", msg)
+				fmt.Printf("Handle forward message %+v\n", msg)
 			case <-time.After(time.Millisecond * 1):
 				continue
 			}
@@ -113,6 +113,7 @@ func createNewPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//forward message
+	fmt.Println("Receive request, forward to " + primary.Hostname)
 	infra.SendUnicast(primary.Hostname, MSG_KIND, np.String())
 
 	w.WriteHeader(http.StatusOK)
