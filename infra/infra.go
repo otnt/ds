@@ -22,7 +22,7 @@ func (c *YamlConfig) ParseYaml(fileName string) error {
 	return err
 }
 
-/* Hashmap for nodes on the network */
+/* Hashmap for nodes on the network  */
 var nodeIndexMap map[string]*node.Node
 
 /* Hashmap for connections to servers */

@@ -5,3 +5,6 @@ servers :
   - hostname : Bob
     ip : 127.0.0.1
     port : 23456
+  - hostname : Charlie
+    ip : 127.0.0.1
+    port : 34567
