@@ -13,7 +13,8 @@ import (
 var ring *ch.Ring
 
 const (
-	MSG_KIND = "forward"
+	KIND_FORWARD = "forward"
+	KIND_FETCH = "fetch"
 )
 
 type WebService struct {
@@ -55,7 +56,14 @@ func (ws *WebService) initListener() {
 		for {
 			select {
 			case msg := <-infra.ReceivedBuffer:
-				fmt.Printf("Handle forward message %+v\n", msg)
+				if kind := msg.Kind; kind == KIND_FORWARD {
+					fmt.Printf("Handle forward message %+v\n", msg)
+					infra.SendUnicast(msg.Src, "ok", KIND_FORWARD)
+				} else if kind == KIND_FETCH {
+					fmt.Println("Fetch all post")
+				} else {
+					fmt.Println("No support message kind " + kind)
+				}
 			case <-time.After(time.Millisecond * 1):
 				continue
 			}
@@ -114,7 +122,9 @@ func createNewPost(w http.ResponseWriter, r *http.Request) {
 
 	//forward message
 	fmt.Println("Receive request, forward to " + primary.Hostname)
-	infra.SendUnicast(primary.Hostname, MSG_KIND, np.String())
+	infra.SendUnicast(primary.Hostname, np.String(), KIND_FORWARD)
+	msg := <-infra.ReceivedBuffer
+	fmt.Printf("Receive response %+v\n", msg)
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("ok\n"))
