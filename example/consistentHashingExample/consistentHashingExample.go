@@ -12,11 +12,11 @@ func main() {
 
 	//Add/Remove Node to consistent hashing ring in asynchronous method
 	nodes := []*node.Node{
-		node.NewNode("127.0.0.1", 0, 3),
-		node.NewNode("127.0.0.1", 1, 3),
-		node.NewNode("127.0.0.1", 2, 3),
-		node.NewNode("127.0.0.1", 3, 3),
-		node.NewNode("127.0.0.1", 4, 3),
+		node.NewNode("alice","127.0.0.1", 0, 3),
+		node.NewNode("bob","127.0.0.1", 1, 3),
+		node.NewNode("charlie","127.0.0.1", 2, 3),
+		node.NewNode("daphnie","127.0.0.1", 3, 3),
+		node.NewNode("eric","127.0.0.1", 4, 3),
 	}
 
 	//need two channels to do this, one serves as task input channel,
