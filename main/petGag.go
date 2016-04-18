@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/otnt/ds/webService"
+	"github.com/otnt/ds/replication"
 	ch "github.com/otnt/ds/consistentHashing"
 	"github.com/otnt/ds/infra"
 	"fmt"
