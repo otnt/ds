@@ -31,7 +31,7 @@ func NewRing() (ring *Ring) {
 }
 
 // Get the hash value of data
-func (ring *Ring) hash(value string) string {
+func (ring *Ring) Hash(value string) string {
 		bytes := []byte(value)
 		h := sha1.New()
 		h.Write(bytes)
@@ -112,11 +112,10 @@ func (ring *Ring) RemoveAsync(removeChan <-chan *node.Node, complete chan<- *nod
 // If the input key is the same as some Node's key, then the result is
 // that exact Node.
 //
-// @param data: data to be stored
+// @param key: key to be stored
 // @return: return the node if such successor founded, otherwise an error is
 //          given
-func (ring *Ring) LookUp(data string) (*node.Node, error) {
-	key := ring.hash(data)
+func (ring *Ring) LookUp(key string) (*node.Node, string, error) {
 	return ring.getCeilingOf(key)
 }
 
@@ -125,7 +124,7 @@ func (ring *Ring) LookUp(data string) (*node.Node, error) {
 // @param key: string of key
 // @return: return the node if such successor founded, otherwise an error is
 //          given
-func (ring *Ring) Successor(key string) (*node.Node, error) {
+func (ring *Ring) Successor(key string) (*node.Node, string, error) {
 	return ring.getCeilingOf(AddOne(key))
 }
 
@@ -134,7 +133,7 @@ func (ring *Ring) Successor(key string) (*node.Node, error) {
 // @param key: string of key
 // @return: return the node if such predecessor founded, otherwise an error is
 //          given
-func (ring *Ring) Predecessor(key string) (*node.Node, error) {
+func (ring *Ring) Predecessor(key string) (*node.Node, string, error) {
 	return ring.getFloorOf(SubOne(key))
 }
 
@@ -190,19 +189,19 @@ func (ring *Ring) Values() []*node.Node {
 // @param key: string of key
 // @return: return the node if tree is not empty, otherwise an error is
 //          given
-func (ring *Ring) getCeilingOf(key string) (*node.Node, error) {
+func (ring *Ring) getCeilingOf(key string) (*node.Node, string, error) {
 	size := ring.tree.Size()
 	if size == 0 {
-		return &node.Node{}, errors.New("No node alive")
+		return &node.Node{}, "", errors.New("No node alive")
 	}
 
 	// find ceiling of this key
 	if treeNode, found := ring.tree.Ceiling(key); found {
-		return treeNode.Value.(*node.Node), nil
+		return treeNode.Value.(*node.Node), treeNode.Key.(string), nil
 	} else {
 		// Or it may be winded back to zero
 		minTreeNodeValue, _ := ring.tree.GetMin()
-		return minTreeNodeValue.(*node.Node), nil
+		return minTreeNodeValue.(*node.Node),ring.Keys()[0], nil
 	}
 }
 
@@ -214,19 +213,19 @@ func (ring *Ring) getCeilingOf(key string) (*node.Node, error) {
 // @param key: string of key
 // @return: return the node if tree is not empty, otherwise an error is
 //          given
-func (ring *Ring) getFloorOf(key string) (*node.Node, error) {
+func (ring *Ring) getFloorOf(key string) (*node.Node, string, error) {
 	size := ring.tree.Size()
 	if size == 0 {
-		return &node.Node{}, errors.New("No node alive")
+		return &node.Node{}, "", errors.New("No node alive")
 	}
 
 	// find floor of this key
 	if treeNode, found := ring.tree.Floor(key); found {
-		return treeNode.Value.(*node.Node), nil
+		return treeNode.Value.(*node.Node), treeNode.Key.(string), nil
 	} else {
 		// Or it may be winded back to zero
 		maxTreeNodeValue, _ := ring.tree.GetMax()
-		return maxTreeNodeValue.(*node.Node), nil
+		return maxTreeNodeValue.(*node.Node), ring.Keys()[len(ring.Keys()) - 1], nil
 	}
 }
 
