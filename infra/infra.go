@@ -34,7 +34,7 @@ var localNode *node.Node
 var ReceivedBuffer chan message.Message
 
 func listenerThread(conn *net.TCPConn) {
-	readFromSocket := make([]byte, 256)
+	readFromSocket := make([]byte, 4096)
 	defer conn.Close()  // close connection at exit
 	ReceivedBuffer = make(chan message.Message)
 	for {
@@ -53,7 +53,7 @@ func listenerThread(conn *net.TCPConn) {
 			go func() { ReceivedBuffer <- rcvMessage }()
 		}
 		/* Clear message for next read */
-		readFromSocket = make([]byte, 256)
+		readFromSocket = make([]byte, 4096)
 	}
 }
 
