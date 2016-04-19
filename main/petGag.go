@@ -1,15 +1,15 @@
 package main
 
 import (
-	"github.com/otnt/ds/webService"
-	"github.com/otnt/ds/replication"
+	"fmt"
 	ch "github.com/otnt/ds/consistentHashing"
 	"github.com/otnt/ds/infra"
-	"fmt"
-	"os"
 	"github.com/otnt/ds/node"
-	"time"
+	"github.com/otnt/ds/replication"
+	"github.com/otnt/ds/webService"
+	"os"
 	"strconv"
+	"time"
 )
 
 func main() {
@@ -21,7 +21,7 @@ func main() {
 	localHost := os.Args[1]
 	infra.InitNetwork(localHost)
 	ring := ch.NewRing()
-	for _,n:= range nodes.Servers{
+	for _, n := range nodes.Servers {
 		nn := node.Node(n)
 		ring.AddSync(&nn)
 	}
@@ -31,7 +31,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	ws:= webService.WebService{Port: port}
+	ws := webService.WebService{Port: port}
 	ws.Run(ring)
 	go messageDispatcher()
 }
@@ -41,14 +41,17 @@ func messageDispatcher() {
 		newMessage := infra.CheckIncomingMessages()
 		messageKind := message.GetKind(&newMessage)
 
-		if messageKind == "replication" {
-			replication.NameOfFunction(&newMessage)
-		}
-		else if messageKind == "forward" {
-			replication.NameOfFunction(&newMessage)
-		}
-		else if messageKind == "forward" {
-			replication.NameOfFunction(&newMessage)
+		if messageKind == "forward" { /* At the primary */
+			replication.UpdateSelfDB(&newMessage)
+			replication.AskNodesToUpdate(&newMessage)
+			go replication.WaitForAcks()
+			replication.RespondToClient()
+
+		} else if messageKind == "forward" { /* At the secondary */
+			replication.UpdateSelfDB(&newMessage)
+			replication.SendAcks(&newMessage)
+		} else if messageKind == "acknowledgement" { /* Acks processing at the primary */
+			replication.ProcessAcks()
 		}
 	}
 }
