@@ -6,7 +6,7 @@ import (
 	"github.com/otnt/ds/node"
 )
 
-func main() {
+func consistentHashingExample() {
 	//always create ring by using NewRing method
 	ring := ch.NewRing()
 
@@ -60,17 +60,17 @@ func main() {
 	//[97c1af2272de15532b1483651b715129332f8406 7260a48008fb01d884067d8e50b64ac56b9c3221 eb102fa9386db4715c2cfc93d019ca21c194b767]
 	//127.0.0.1:2
 	//[bd5b206633d9f79501860b0c03559379b89435ff c98a2ee624a8306f46ef5e01f6ea5dcce0b7ac52 98273171fa35b563b7519cef47d48005ee391f2c]
-	n1, _ := ring.LookUp("97c1af2272de15532b1483651b715129332f8406")
-	n2, _ := ring.LookUp("7260a48008fb01d884067d8e50b64ac56b9c3221")
-	n3, _ := ring.LookUp("eb102fa9386db4715c2cfc93d019ca21c194b767")
+	n1, _, _ := ring.LookUp("97c1af2272de15532b1483651b715129332f8406")
+	n2, _, _ := ring.LookUp("7260a48008fb01d884067d8e50b64ac56b9c3221")
+	n3, _, _ := ring.LookUp("eb102fa9386db4715c2cfc93d019ca21c194b767")
 	fmt.Println(n1 == n2, n1 == n3, n1 == nodes[1])
 
 	//given a key string, get successor of this node
-	succ, _ := ring.Successor("97c1af2272de15532b1483651b715129332f8406")
+	succ, _, _ := ring.Successor("97c1af2272de15532b1483651b715129332f8406")
 	fmt.Println(succ == nodes[2])
-	succ, _ = ring.Successor("7260a48008fb01d884067d8e50b64ac56b9c3221")
+	succ, _, _ = ring.Successor("7260a48008fb01d884067d8e50b64ac56b9c3221")
 	fmt.Println(succ == nodes[1])
-	succ, _ = ring.Successor("eb102fa9386db4715c2cfc93d019ca21c194b767")
+	succ, _, _ = ring.Successor("eb102fa9386db4715c2cfc93d019ca21c194b767")
 	fmt.Println(succ == nodes[1])
 
 	//only when there is no node in the ring, the look up will fail
@@ -78,6 +78,6 @@ func main() {
 	//for the consistent hashing to be empty
 	ring.RemoveSync(nodes[1])
 	ring.RemoveSync(nodes[2])
-	_, err := ring.LookUp("97c1af2272de15532b1483651b715129332f8406")
+	_, _, err := ring.LookUp("97c1af2272de15532b1483651b715129332f8406")
 	fmt.Println(err)
 }

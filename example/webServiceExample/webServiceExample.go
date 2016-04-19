@@ -10,6 +10,7 @@ import (
 	"github.com/otnt/ds/node"
 	"time"
 	"strconv"
+	"github.com/otnt/ds/message"
 )
 
 func main() {
@@ -21,6 +22,7 @@ func main() {
 	localHost := os.Args[1]
 	infra.InitNetwork(localHost)
 	time.Sleep(500)
+
 
 	//init consistent hashing
 	//nodes := config.BootstrapNodes()
@@ -39,4 +41,31 @@ func main() {
 	}
 	ws:= webService.WebService{Port: port}
 	ws.Run(ring)
+
+	//incoming message dispatcher
+	go func() {
+		for {
+			select {
+				case newMessage := <-infra.ReceivedBuffer:  //infra.CheckIncomingMessages()
+				messageKind := message.GetKind(&newMessage)
+				if messageKind == "replication" {
+					//replication.NameOfFunction(&newMessage)
+				} else if messageKind == webService.KIND_FORWARD {
+					webService.ForwardChan <- &newMessage
+				} else if messageKind == webService.KIND_FETCH {
+					webService.FetchChan <- &newMessage
+				} else if messageKind == webService.KIND_FORWARD_ACK {
+					webService.ForwardAckChan <- &newMessage
+				} else if messageKind == webService.KIND_FETCH_ACK {
+					webService.FetchAckChan <- &newMessage
+				}
+
+			case <-time.After(time.Millisecond * 1):
+				continue
+			}
+		}
+	}()
+
+	block := make(chan bool)
+	<-block
 }
