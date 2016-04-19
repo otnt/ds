@@ -47,19 +47,6 @@ func initMongoDB() (mongoSession *mgo.Session) {
 	mongoSession = establishSession()
 }
 
-/* A blocking thread that checks the forward message buffer for messages */
-func receiveForwardMessageThread(message PetGagMessage) {
-
-}
-
-func receiveReplicationMessageThread(message PetGagMessage) {
-
-}
-
-func receiveAcknowledgementThread(message PetGagMessage) {
-
-}
-
 /* Functions to be implemented if the message is of kind forward */
 
 func updateSelfDB(message PetGagMessage) (objIDHex string){
@@ -103,7 +90,7 @@ func updateSelfDB(message PetGagMessage) (objIDHex string){
 	}
 }
 
-func askNodesToUpdate(message PetGagMessage) {
+func AskNodesToUpdate(message PetGagMessage) {
 	var secondaryNodes []node.Node
 	var localNode node.Node = GetLocalNode()
 	secondaryNodes = append(secondaryNodes, localNode)
@@ -122,7 +109,7 @@ func askNodesToUpdate(message PetGagMessage) {
 
 }
 
-func waitForAcks() {
+func WaitForAcks() {
 	var int acksObtained = 0
 	for() {
 		acksObtained = 
