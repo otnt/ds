@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/otnt/ds/webService"
-	"github.com/otnt/ds/replication"
+	//"github.com/otnt/ds/replication"
 	ch "github.com/otnt/ds/consistentHashing"
 	"github.com/otnt/ds/infra"
 	"fmt"
@@ -10,6 +10,7 @@ import (
 	"github.com/otnt/ds/node"
 	"time"
 	"strconv"
+	"github.com/otnt/ds/message"
 )
 
 func main() {
@@ -20,9 +21,11 @@ func main() {
 	}
 	localHost := os.Args[1]
 	infra.InitNetwork(localHost)
+
+	//init consistent hashing
 	ring := ch.NewRing()
-	for _,n:= range nodes.Servers{
-		nn := node.Node(n)
+	for _,n:= range infra.NodeIndexMap{
+		nn := node.Node(*n)
 		ring.AddSync(&nn)
 	}
 
@@ -34,21 +37,31 @@ func main() {
 	ws:= webService.WebService{Port: port}
 	ws.Run(ring)
 	go messageDispatcher()
+
+	block := make(chan bool)
+	<-block
 }
 
 func messageDispatcher() {
 	for {
-		newMessage := infra.CheckIncomingMessages()
-		messageKind := message.GetKind(&newMessage)
+		select {
+		case newMessage := <-infra.ReceivedBuffer:
+			messageKind := message.GetKind(&newMessage)
 
-		if messageKind == "replication" {
-			replication.NameOfFunction(&newMessage)
-		}
-		else if messageKind == "forward" {
-			replication.NameOfFunction(&newMessage)
-		}
-		else if messageKind == "forward" {
-			replication.NameOfFunction(&newMessage)
+			if messageKind == "replication" {
+				//replication.NameOfFunction(&newMessage)
+			} else if messageKind == webService.KIND_FORWARD {
+				webService.ForwardChan <- &newMessage
+			} else if messageKind == webService.KIND_FETCH {
+				webService.FetchChan <- &newMessage
+			} else if messageKind == webService.KIND_FORWARD_ACK {
+				webService.ForwardAckChan <- &newMessage
+			} else if messageKind == webService.KIND_FETCH_ACK {
+				webService.FetchAckChan <- &newMessage
+			}
+
+		case <-time.After(time.Millisecond * 1):
+			continue
 		}
 	}
 }
