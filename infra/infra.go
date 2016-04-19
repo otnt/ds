@@ -23,7 +23,7 @@ func (c *YamlConfig) ParseYaml(fileName string) error {
 }
 
 /* Hashmap for nodes on the network  */
-var nodeIndexMap map[string]*node.Node
+var NodeIndexMap map[string]*node.Node
 
 /* Hashmap for connections to servers */
 var connectionMap map[string]*net.TCPConn
@@ -92,7 +92,7 @@ func connectToNode(node *node.Node) {
 func connectToOtherServers(pYamlConfig *YamlConfig) {
 	for _, each := range pYamlConfig.Servers {
 		if each.Hostname > localNode.Hostname {
-			remoteNode := nodeIndexMap[each.Hostname]
+			remoteNode := NodeIndexMap[each.Hostname]
 			connectToNode(remoteNode)
 			fmt.Println("Connected to", remoteNode.Hostname, " at ", remoteNode.Uuid)
 		}
@@ -133,7 +133,7 @@ func acceptConnectionsFromOtherServers(pYamlConfig *YamlConfig) {
 			break
 		}
 		remoteHost := s_connMessage[3]
-		remoteNode := nodeIndexMap[remoteHost]
+		remoteNode := NodeIndexMap[remoteHost]
 		connectionMap[remoteNode.Hostname] = conn.(*net.TCPConn)
 		//go handleClient(conn)
 		fmt.Printf("Connected to [%s] at %s\n", remoteNode.Hostname, conn.RemoteAddr())
@@ -144,25 +144,25 @@ func acceptConnectionsFromOtherServers(pYamlConfig *YamlConfig) {
 }
 
 func InitNetwork(localHost string) {
-	nodeIndexMap = map[string]*node.Node{}
+	NodeIndexMap = map[string]*node.Node{}
 	connectionMap = map[string]*net.TCPConn{}
 	vnodeNum := 2
 	var yamlConfig YamlConfig
 	err := yamlConfig.ParseYaml("nodes.yml")
 	checkError(err)
 	for _, each := range yamlConfig.Servers {
-		/* Build the nodeIndexMap hashmap 
+		/* Build the NodeIndexMap hashmap 
 		if each.Hostname = localHost {
 			localHostIndex = index
 		} */
-		nodeIndexMap[each.Hostname] = node.NewNode(each.Hostname, each.Ip, each.Port, vnodeNum)
+		NodeIndexMap[each.Hostname] = node.NewNode(each.Hostname, each.Ip, each.Port, vnodeNum)
 	}
 
-	for key, value := range nodeIndexMap {
+	for key, value := range NodeIndexMap {
 	    fmt.Println("Key:", key, "Value:", value)
 	}
 
-	localNode = nodeIndexMap[localHost]
+	localNode = NodeIndexMap[localHost]
 	//localNode = yamlConfig.Servers[localHostIndex]
 	fmt.Printf("Local Host is [%s] at %s:%d\n", localNode.Hostname, localNode.Ip, localNode.Port)
 	fmt.Printf("Keys are: %+v\n", localNode.Keys)
