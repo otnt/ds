@@ -31,7 +31,7 @@ func connect() (session *mgo.Session) {
 		fmt.Printf("Can't connect to mongo, go error %v\n", error)
 		os.Exit(1)
 	} else {
-		fmt.Printf("Session created\n")
+		//fmt.Printf("Session created\n")
 	}
 	session.SetSafe(&mgo.Safe{})
 	return session
@@ -48,9 +48,9 @@ func getAllPostsFromDB() (allPosts []bson.M) {
 		log.Printf("Get from DB error : %s\n",err)
 		return
 	}
-	for _, obj := range allPosts {
-		fmt.Println(obj)
-	}
+	//for _, obj := range allPosts {
+	//	fmt.Println(obj)
+	//}
 	//fmt.Println("Results All: ", allPosts) 
 	return allPosts
 }

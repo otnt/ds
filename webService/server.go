@@ -8,6 +8,9 @@ import (
 	"net/http"
 	"fmt"
 	"time"
+	"gopkg.in/mgo.v2/bson"
+	"bytes"
+	"github.com/otnt/ds/message"
 )
 
 var ring *ch.Ring
@@ -15,7 +18,14 @@ var ring *ch.Ring
 const (
 	KIND_FORWARD = "forward"
 	KIND_FETCH = "fetch"
+	KIND_FORWARD_ACK = "forward_ack"
+	KIND_FETCH_ACK = "fetch_ack"
 )
+
+var	ForwardChan chan *message.Message
+var	FetchChan chan *message.Message
+var	ForwardAckChan chan *message.Message
+var	FetchAckChan chan *message.Message
 
 type WebService struct {
 	Port int
@@ -23,13 +33,14 @@ type WebService struct {
 }
 
 func (ws *WebService) Run(r *ch.Ring) {
+	ForwardChan = make(chan *message.Message, 10)
+	FetchChan= make(chan *message.Message, 10)
+	ForwardAckChan= make(chan *message.Message, 10)
+	FetchAckChan= make(chan *message.Message, 10)
 	ring = r
 	ws.initRouter()
 	ws.initHttp()
 	ws.initListener()
-
-	block := make(chan bool)
-	<-block
 }
 
 // Create router and serve the request
@@ -55,15 +66,11 @@ func (ws *WebService) initListener() {
 	go func() {
 		for {
 			select {
-			case msg := <-infra.ReceivedBuffer:
-				if kind := msg.Kind; kind == KIND_FORWARD {
-					fmt.Printf("Handle forward message %+v\n", msg)
-					infra.SendUnicast(msg.Src, "ok", KIND_FORWARD)
-				} else if kind == KIND_FETCH {
-					fmt.Println("Fetch all post")
-				} else {
-					fmt.Println("No support message kind " + kind)
-				}
+			case msg := <-ForwardChan:
+				fmt.Println("Handle forward message from " + msg.Src)
+				infra.SendUnicast(msg.Src, "ok", KIND_FORWARD_ACK)
+			case msg := <-FetchChan:
+				ws.HandleFetch(msg)
 			case <-time.After(time.Millisecond * 1):
 				continue
 			}
@@ -71,14 +78,44 @@ func (ws *WebService) initListener() {
 	}()
 }
 
+// Handle fetch request, return all data in local database
+func (ws *WebService) HandleFetch(msg *message.Message) {
+	fmt.Println("Do fetching")
+
+	posts := getAllPostsFromDB()
+	var buf bytes.Buffer
+	json.NewEncoder(&buf).Encode(posts)
+	infra.SendUnicast(msg.Src, buf.String(),KIND_FETCH_ACK)
+}
+
 // Fetch all posts in reverse chronological order
 func fetchAllPosts(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Receive fetch request")
+
+	for hostname, _ := range infra.NodeIndexMap {
+		infra.SendUnicast(hostname, "fetch", KIND_FETCH)
+	}
+
+	res := make([]bson.M, 0)
+	for _, _ = range infra.NodeIndexMap {
+		msg := <-FetchAckChan
+		var d []bson.M
+		err := json.NewDecoder(bytes.NewBufferString(msg.Data)).Decode(&d)
+		if err != nil {
+			fmt.Printf("Error when decode data %v\n", err)
+			return
+		}
+		res = append(res, d...)
+	}
+
+	fmt.Println("Fetched all data")
+
 	w.Header().Set("Content-Type", "application/json;  charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
 
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	if err := json.NewEncoder(w).Encode(getAllPostsFromDB()); err != nil {
-		panic(err)
+		panic(fmt.Sprintf("Error when encoding posts: %+v\n", err))
 	}
 }
 
@@ -113,7 +150,7 @@ func createNewPost(w http.ResponseWriter, r *http.Request) {
 		length = len(np.ImageData)
 	}
 	data := np.ImageData[:length]
-	primary, err := ring.LookUp(data)
+	primary, _, err := ring.LookUp(data)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(fmt.Sprintf("%q\n", err)))
@@ -123,8 +160,8 @@ func createNewPost(w http.ResponseWriter, r *http.Request) {
 	//forward message
 	fmt.Println("Receive request, forward to " + primary.Hostname)
 	infra.SendUnicast(primary.Hostname, np.String(), KIND_FORWARD)
-	msg := <-infra.ReceivedBuffer
-	fmt.Printf("Receive response %+v\n", msg)
+	msg := <-ForwardAckChan
+	fmt.Println("Receive response from " + msg.Src)
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("ok\n"))
