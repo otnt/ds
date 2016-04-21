@@ -7,7 +7,7 @@ import (
 	infra "github.com/otnt/ds/infra"
 	"net/http"
 	"fmt"
-	"time"
+	//"time"
 	"gopkg.in/mgo.v2/bson"
 	"bytes"
 	"github.com/otnt/ds/message"
@@ -71,8 +71,6 @@ func (ws *WebService) initListener() {
 				infra.SendUnicast(msg.Src, "ok", KIND_FORWARD_ACK)
 			case msg := <-FetchChan:
 				ws.HandleFetch(msg)
-			case <-time.After(time.Millisecond * 1):
-				continue
 			}
 		}
 	}()
