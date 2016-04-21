@@ -50,10 +50,10 @@ func InitReplication(r *ch.Ring) {
 	ring = r
 }
 
-func InitMongoDB() (mongoSession *mgo.Session) {
+/* func InitMongoDB() (mongoSession *mgo.Session) {
 	mongoSession = mongoDBintegration.EstablishSession()
 	return mongoSession
-}
+} */
 
 /* Functions to be implemented if the message is of kind forward */
 
@@ -61,6 +61,8 @@ func updateSelfDB(msg petGagMessage.PetGagMessage, mongoSession *mgo.Session) (o
 	operation := msg.PGData.DbOp
 
 	if operation == "Insert" {
+
+		/* Each user has his own collection. Collections are names after users */
 		objID := mongoDBintegration.InsertPicture(mongoSession, msg.PGData.ImageURL, msg.PGData.UserName, msg.PGData.BelongsTo, msg.PGData.ObjID)
 		msg.PGData.ObjID = objID.Hex()
 		return msg.PGData.ObjID

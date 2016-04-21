@@ -3,7 +3,6 @@ package mongoDBintegration
 import (
 	//"github.com/pshastry/node"
 	"fmt"
-	"github.com/otnt/ds/petgagData"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"log"
@@ -19,14 +18,14 @@ import (
 } */
 
 type (
-	/* Contains information about the comments - this is an embedded document
+	// Contains information about the comments - this is an embedded document
 	Comments struct {
 		Comment string `bson:"comment"`
 		//UserID   string `bson:"user_comment"`
 		UserName string `bson:"user_name"`
 	}
 
-	Contains information about the votes - this is an embedded document
+	/* //Contains information about the votes - this is an embedded document
 	UpVotes struct {
 		//UpVote int 'bson: "upvote_num"'
 		//UserID   string `bson:"upvoter_id"`
@@ -37,10 +36,10 @@ type (
 	DownVotes struct {
 		//Downvotes int    `bson:"downvote_num"`
 		DownvotedUsers []string `bson:"user_name"`
-	}
+	} */
 
 	// Contains information about the main document - the image uploaded
-	/*SharedImage struct {
+	SharedImage struct {
 		ImageID  bson.ObjectId `bson:"_id"`
 		ImageURL string        `bson:"image_data"`
 		UserName string        `bson:"user_name"`
@@ -49,16 +48,6 @@ type (
 		Commt    []Comments    `bson:"comment"`
 		//UpVotedUsers   UpVotes       `bson:"upvote"`
 		//DownVotedUsers DownVotes     `bson:"downvote"`
-	} */
-
-	SharedImage struct {
-		ImageURL string
-		Commt    []Comment
-		UpVote   int
-		DownVote int
-		UserName string
-		UserID   string
-		ObjID    string
 	}
 
 	SharedImages struct {
@@ -196,7 +185,7 @@ func DownVotePicture(mongoSession *mgo.Session, id bson.ObjectId, user_name stri
 func CommentOnPicture(mongoSession *mgo.Session, id bson.ObjectId, user_name string, comt string, collection_name string) {
 	collection := mongoSession.DB("Database").C(collection_name)
 	doc := collection.FindId(id)
-	change := mgo.Change{Update: bson.M{"$push": bson.M{"SharedImage.$.Commt.$.UserName": user_name, "SharedImage.$.Commt.$.Comment": comt}}, ReturnNew: true}
+	change := mgo.Change{Update: bson.M{"$push": bson.M{"SharedImage.$.Commt.$.UserName": user_name, "SharedImage.Commt.$.Comment": comt}}, ReturnNew: true}
 	_, err := doc.Apply(change, &doc)
 	if err != nil {
 		log.Println("Update error : %s\n", err)
