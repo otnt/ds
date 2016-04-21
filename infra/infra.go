@@ -6,6 +6,7 @@ import (
 	"os"
 	"net"
 	"strings"
+	"time"
 	"github.com/otnt/ds/node"
 	"github.com/otnt/ds/message"
 	"gopkg.in/yaml.v2"
@@ -69,32 +70,51 @@ func SendUnicast(dest string, data string, kind string) {
 	checkError(err)
 }
 
-func connectToNode(node *node.Node) {
+func connectToNode(node *node.Node) int {
 	/* Get the remote node TCP address */
 	service := fmt.Sprintf("%s:%d", node.Ip, node.Port)
 	tcpAddr, err := net.ResolveTCPAddr("tcp4", service)
-	checkError(err)
-
-	/* Connect to Server */
-	conn, err := net.DialTCP("tcp", nil, tcpAddr)
-	checkError(err)
-
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error [net.ResolveTCPAddr]: %s\n", err.Error())
+		return -1;
+	}
+	
+	/* Try to connect to the remote, sleep 5 seconds between retries */
+	var conn *net.TCPConn
+	for {
+	
+		/* Connect to Server */
+		conn, err = net.DialTCP("tcp", nil, tcpAddr)
+		if err == nil {
+			break
+		} else {
+			fmt.Fprintf(os.Stderr, "Error [net.DialTCP]: %s -- Retrying in 5 seconds\n", err.Error())
+			time.Sleep(5 * time.Second)
+			continue
+		}
+	}
+	
 	/* Send a connection message to identify self */
 	connectionMessage := fmt.Sprintf("HELO MESSAGE FROM %s CONNECT", localNode.Hostname)
 	_, err = conn.Write([]byte(connectionMessage))
 	checkError(err)
-
+	
 	/* Save the net.Conn pointer to map using remote server's Uuid */
 	connectionMap[node.Hostname] = conn
 	go listenerThread(conn)
+	return 1
 }
 
 func connectToOtherServers(pYamlConfig *YamlConfig) {
 	for _, each := range pYamlConfig.Servers {
 		if each.Hostname > localNode.Hostname {
 			remoteNode := NodeIndexMap[each.Hostname]
-			connectToNode(remoteNode)
-			fmt.Println("Connected to", remoteNode.Hostname, " at ", remoteNode.Uuid)
+			if connectToNode(remoteNode) > 0 {
+				fmt.Println("Connected to", remoteNode.Hostname, "at", remoteNode.Uuid)
+			} else {
+				fmt.Println("Failed to connect to", remoteNode.Hostname, "at", remoteNode.Uuid)
+				os.Exit(1)
+			}
 		}
 	}
 }
@@ -185,6 +205,5 @@ func CheckIncomingMessages() message.Message {
 func checkError(err error) {
     if err != nil {
         fmt.Fprintf(os.Stderr, "Fatal error: %s", err.Error())
-        os.Exit(1)
     }
 }
