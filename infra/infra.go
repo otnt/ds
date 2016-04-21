@@ -56,6 +56,7 @@ func listenerThread(conn *net.TCPConn) {
 		/* Clear message for next read */
 		readFromSocket = make([]byte, 4096)
 	}
+	
 }
 
 func SendUnicast(dest string, data string, kind string) {
@@ -65,9 +66,17 @@ func SendUnicast(dest string, data string, kind string) {
 		go func() { ReceivedBuffer <- sendMessage }()
 		return
 	}
-	conn := connectionMap[dest]
-	_, err := conn.Write(message.Marshal(&sendMessage))
-	checkError(err)
+	conn, ok := connectionMap[dest]
+	if ok {
+		_, err := conn.Write(message.Marshal(&sendMessage))
+		if err != nil {
+			/* Connection lost with the server, remove the server from the connection map and return */
+			fmt.Println("Error: Connection is lost with", dest)
+			delete(connectionMap, dest)
+		}
+	} else {
+		fmt.Println("Error: Destination [",dest,"] unknown")
+	}
 }
 
 func connectToNode(node *node.Node) int {
@@ -204,6 +213,6 @@ func CheckIncomingMessages() message.Message {
 
 func checkError(err error) {
     if err != nil {
-        fmt.Fprintf(os.Stderr, "Fatal error: %s", err.Error())
+        fmt.Fprintf(os.Stderr, "Fatal error: %s\n", err.Error())
     }
 }
