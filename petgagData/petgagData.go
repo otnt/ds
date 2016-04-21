@@ -5,15 +5,14 @@ import (
 //"github.com/otnt/ds/petGagMessage"
 )
 
-/*
-type DbOperation int
+/* type DbOperation int
 
 const (
-	Insert DbOperation = 1 + iota
-	Upvote
-	Downvote
-	Comment
-	Delete
+	OP_INSERT   = "Insert"
+	OP_UPVOTE   = "Upvote"
+	OP_DOWNVOTE = "Downvote"
+	OP_COMMENT  = "Comment"
+	OP_DELETE   = "Delete"
 ) */
 
 type PetgagData struct {
@@ -26,22 +25,8 @@ type PetgagData struct {
 	DownVote  int
 	UserName  string
 	UserID    string
-	ObjID     string
+	ObjID     string /* hex string representation of Object ID. For new item, ObjID = "" */
 }
-
-/*func NewPetGagData(msg message.Message, dbOp DbOperation, comment string, upVote int, downVote int, userName string, objID string, collection string, imageURL string, belongsTo string) (petGagData *PetgagData) {
-	petGagData = &PetgagData{}
-	petGagData.PetGagMessage.Data = msg.Data
-	petGagData.DbOp = dbOp
-	petGagData.Comment = comment
-	petGagData.UpVote = upVote
-	petGagData.DownVote = downVote
-	petGagData.UserName = userName
-	petGagData.ObjID = objID
-	petGagData.ImageURL = imageURL
-	petGagData.BelongsTo = belongsTo
-	return petGagData
-}  */
 
 func NewPetGagData(dbOp string, comment string, upVote int, downVote int, userName string, userID string, objID string, collection string, imageURL string, belongsTo string) (petGagData *PetgagData) {
 	petGagData = &PetgagData{}

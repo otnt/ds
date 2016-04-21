@@ -2,7 +2,7 @@ package mongoDBintegration
 
 import (
 	//"github.com/pshastry/node"
-	//"fmt"
+	"fmt"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"log"
@@ -141,8 +141,17 @@ func GetAllfromDB(mongoSession *mgo.Session) SharedImages {
 }
 
 /* Max file size supported is 16 MB */
-func InsertPicture(mongoSession *mgo.Session, imageURL string, user_name string, collection_name string) (i bson.ObjectId) {
-	i = bson.NewObjectId()
+func InsertPicture(mongoSession *mgo.Session, imageURL string, user_name string, collection_name string, objID string) (i bson.ObjectId) {
+	if objID == "" {
+		i = bson.NewObjectId()
+	} else {
+		if bson.IsObjectIdHex(objID) {
+			i = bson.ObjectIdHex(objID)
+		} else {
+			fmt.Println("Not a valid Object ID")
+			i = bson.NewObjectId()
+		}
+	}
 	//collection := mongoSession.DB("Database").C("SharedImages")
 	collection := mongoSession.DB("Database").C(collection_name)
 	//err := SharedImages.Insert(image)
