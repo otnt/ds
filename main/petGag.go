@@ -11,7 +11,6 @@ import (
 	"os"
 	"strconv"
 	"github.com/otnt/ds/message"
-	//"time"
 )
 
 func main() {

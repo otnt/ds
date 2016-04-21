@@ -36,7 +36,6 @@ var ReceivedBuffer chan message.Message
 func listenerThread(conn *net.TCPConn) {
 	readFromSocket := make([]byte, 4096)
 	defer conn.Close()  // close connection at exit
-	ReceivedBuffer = make(chan message.Message)
 	for {
 		read_len, err := conn.Read(readFromSocket)
 		if err != nil {
@@ -146,6 +145,7 @@ func acceptConnectionsFromOtherServers(pYamlConfig *YamlConfig) {
 func InitNetwork(localHost string) {
 	NodeIndexMap = map[string]*node.Node{}
 	connectionMap = map[string]*net.TCPConn{}
+	ReceivedBuffer = make(chan message.Message)
 	vnodeNum := 2
 	var yamlConfig YamlConfig
 	err := yamlConfig.ParseYaml("nodes.yml")
