@@ -1,13 +1,13 @@
+/* Requires go get github.com/gabstv/go-mgoplus */
+
 package mongoDBintegration
 
 import (
-	//"github.com/pshastry/node"
 	"fmt"
+	"github.com/gabstv/go-mgoplus"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"log"
-	//"time"
-	//"sync"
 )
 
 type (
@@ -98,17 +98,20 @@ func GetOwnDB(mongoSession *mgo.Session, collection_name string) []SharedImage {
 
 /* Get all images posted by all users. Loops through all collections */
 func GetAllfromDB(mongoSession *mgo.Session) SharedImages {
+
+	fmt.Println("Inside getAllfromDB")
+
 	sessionCopy := mongoSession.Copy()
 	defer sessionCopy.Close()
+	db := mongoSession.DB("Database")
+	collection_names, err := mgoplus.GetCollectionNames(db)
 
-	var collection_names []string
-	var err error
-	collection_names, err = mongoSession.DB("Database").CollectionNames()
 	if err != nil {
 		log.Println("Error in getting collection names : %s\n", err)
 	}
 	var imagesAll SharedImages
 	var result SharedImage
+
 	for _, each := range collection_names {
 		collection := mongoSession.DB("Database").C(each)
 		iter := collection.Find(nil).Iter()
