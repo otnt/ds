@@ -3,6 +3,7 @@ package mongoDBintegration
 import (
 	//"github.com/pshastry/node"
 	"fmt"
+	"github.com/otnt/ds/petgagData"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"log"
@@ -18,14 +19,14 @@ import (
 } */
 
 type (
-	// Contains information about the comments - this is an embedded document
+	/* Contains information about the comments - this is an embedded document
 	Comments struct {
 		Comment string `bson:"comment"`
 		//UserID   string `bson:"user_comment"`
 		UserName string `bson:"user_name"`
 	}
 
-	// Contains information about the votes - this is an embedded document
+	Contains information about the votes - this is an embedded document
 	UpVotes struct {
 		//UpVote int 'bson: "upvote_num"'
 		//UserID   string `bson:"upvoter_id"`
@@ -39,15 +40,25 @@ type (
 	}
 
 	// Contains information about the main document - the image uploaded
+	/*SharedImage struct {
+		ImageID  bson.ObjectId `bson:"_id"`
+		ImageURL string        `bson:"image_data"`
+		UserName string        `bson:"user_name"`
+		UpVote   int           `bson:"upvote_num"`
+		DownVote int           `bson:"downvote_num"`
+		Commt    []Comments    `bson:"comment"`
+		//UpVotedUsers   UpVotes       `bson:"upvote"`
+		//DownVotedUsers DownVotes     `bson:"downvote"`
+	} */
+
 	SharedImage struct {
-		ImageID        bson.ObjectId `bson:"_id, omitempty"`
-		ImageURL       string        `bson:"image_data"`
-		UserName       string        `bson:"user_name"`
-		UpVote         int           `bson:"upvote_num"`
-		DownVote       int           `bson:"downvote_num"`
-		Commt          []Comments    `bson:"comment"`
-		UpVotedUsers   UpVotes       `bson:"upvote"`
-		DownVotedUsers DownVotes     `bson:"downvote"`
+		ImageURL string
+		Commt    []Comment
+		UpVote   int
+		DownVote int
+		UserName string
+		UserID   string
+		ObjID    string
 	}
 
 	SharedImages struct {
@@ -142,7 +153,7 @@ func GetAllfromDB(mongoSession *mgo.Session) SharedImages {
 
 /* Max file size supported is 16 MB */
 func InsertPicture(mongoSession *mgo.Session, imageURL string, user_name string, collection_name string, objID string) (i bson.ObjectId) {
-	if objID == "" {
+	if objID == "nil" {
 		i = bson.NewObjectId()
 	} else {
 		if bson.IsObjectIdHex(objID) {
@@ -165,7 +176,7 @@ func InsertPicture(mongoSession *mgo.Session, imageURL string, user_name string,
 func UpVotePicture(mongoSession *mgo.Session, id bson.ObjectId, user_name string, vote int, collection_name string) {
 	collection := mongoSession.DB("Database").C(collection_name)
 	doc := collection.FindId(id)
-	change := mgo.Change{Update: bson.M{"$inc": bson.M{"SharedImage.$.UpVote": 1}, "$push": bson.M{"SharedImage.$.UpVotedUsers.$.UserName": user_name}}, ReturnNew: true}
+	change := mgo.Change{Update: bson.M{"$inc": bson.M{"SharedImage.$.UpVote": 1} /*, "$push": bson.M{"SharedImage.$.UpVotedUsers.$.UserName": user_name}*/}, ReturnNew: true}
 	_, err := doc.Apply(change, &doc)
 	if err != nil {
 		log.Println("Update error : %s\n", err)
@@ -175,7 +186,7 @@ func UpVotePicture(mongoSession *mgo.Session, id bson.ObjectId, user_name string
 func DownVotePicture(mongoSession *mgo.Session, id bson.ObjectId, user_name string, vote int, collection_name string) {
 	collection := mongoSession.DB("Database").C(collection_name)
 	doc := collection.FindId(id)
-	change := mgo.Change{Update: bson.M{"$inc": bson.M{"SharedImage.$.DownVote": 1}, "$push": bson.M{"SharedImage.$.DownVotedUsers.$.UserName": user_name}}, ReturnNew: true}
+	change := mgo.Change{Update: bson.M{"$inc": bson.M{"SharedImage.$.DownVote": 1} /*, "$push": bson.M{"SharedImage.$.DownVotedUsers.$.UserName": user_name}*/}, ReturnNew: true}
 	_, err := doc.Apply(change, &doc)
 	if err != nil {
 		log.Println("Update error : %s\n", err)
