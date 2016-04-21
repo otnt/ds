@@ -114,7 +114,7 @@ func fetchAllPosts(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	if err := json.NewEncoder(w).Encode(getAllPostsFromDB()); err != nil {
+	if err := json.NewEncoder(w).Encode(res); err != nil {
 		panic(fmt.Sprintf("Error when encoding posts: %+v\n", err))
 	}
 }
