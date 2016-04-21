@@ -57,7 +57,7 @@ func messageDispatcher() {
 				go replication.WaitForAcks()
 				replication.RespondToClient()
 			} else if messageKind == "replication" { /* At the secondary */
-				replication.UpdateSelfDB(&newMessage, mongoSession)
+				replication.UpdateSelfDB(&newMessage, mongoSessions)
 				replication.SendAcks(&newMessage)
 			} else if messageKind == "acknowledgement" { /* Acks processing at the primary */
 				replication.ProcessAcks()
