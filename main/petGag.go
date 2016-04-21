@@ -11,7 +11,7 @@ import (
 	"os"
 	"strconv"
 	"github.com/otnt/ds/message"
-	"time"
+	//"time"
 )
 
 func main() {
@@ -45,24 +45,19 @@ func main() {
 
 func messageDispatcher() {
 	for {
-		select {
-		case newMessage := <-infra.ReceivedBuffer:
-			messageKind := message.GetKind(&newMessage)
+		newMessage := <-infra.ReceivedBuffer
+		messageKind := message.GetKind(&newMessage)
 
-			if messageKind == "replication" {
-				//replication.NameOfFunction(&newMessage)
-			} else if messageKind == webService.KIND_FORWARD {
-				webService.ForwardChan <- &newMessage
-			} else if messageKind == webService.KIND_FETCH {
-				webService.FetchChan <- &newMessage
-			} else if messageKind == webService.KIND_FORWARD_ACK {
-				webService.ForwardAckChan <- &newMessage
-			} else if messageKind == webService.KIND_FETCH_ACK {
-				webService.FetchAckChan <- &newMessage
-			}
-
-		case <-time.After(time.Millisecond * 1):
-			continue
+		if messageKind == "replication" {
+			//replication.NameOfFunction(&newMessage)
+		} else if messageKind == webService.KIND_FORWARD {
+			webService.ForwardChan <- &newMessage
+		} else if messageKind == webService.KIND_FETCH {
+			webService.FetchChan <- &newMessage
+		} else if messageKind == webService.KIND_FORWARD_ACK {
+			webService.ForwardAckChan <- &newMessage
+		} else if messageKind == webService.KIND_FETCH_ACK {
+			webService.FetchAckChan <- &newMessage
 		}
 	}
 }
