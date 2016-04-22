@@ -4,13 +4,15 @@ import (
 	"fmt"
 	ch "github.com/otnt/ds/consistentHashing"
 	"github.com/otnt/ds/infra"
+	"github.com/otnt/ds/message"
+	"github.com/otnt/ds/mongoDbintegration"
+	"github.com/otnt/ds/msgToPetgagMsg"
 	"github.com/otnt/ds/node"
 	"github.com/otnt/ds/webService"
 	"github.com/otnt/ds/replication"
 	"github.com/otnt/ds/message"
 	"os"
 	"strconv"
-	//"github.com/otnt/ds/message"
 )
 
 func main() {
@@ -48,17 +50,19 @@ func messageDispatcher() {
 	for {
 		newMessage := <-infra.ReceivedBuffer
 		messageKind := message.GetKind(&newMessage)
-
 		if messageKind == "forward" {
-			replication.UpdateSelfDB(&newMessage, mongoSession)
-			replication.AskNodesToUpdate(&newMessage, mongoSession)
+			newPGMessage := msgToPetgagMsg.ConvertToPGMsg(&newMessage)
+			replication.UpdateSelfDB(&newPGMessage, mongoSession)
+			replication.AskNodesToUpdate(&newPGMessage, mongoSession)
 			go replication.WaitForAcks()
 			replication.RespondToClient()
-		} else if messageKind == "replication" {
-			replication.UpdateSelfDB(&newMessage, mongoSessions)
-			replication.SendAcks(&newMessage)
-		} else if messageKind == "acknowledgement" { 
+			/* At the secondary */
+		} else if messageKind == "replication" { 
+			newPGMessage := msgToPetgagMsg.ConvertToPGMsg(&newMessage)
+			replication.UpdateSelfDB(&newPGMessage, mongoSessions)
+			replication.SendAcks(&newPGMessage)
 			/* Acks processing at the primary */
+		} else if messageKind == "acknowledgement" { 
 			replication.ProcessAcks()
 		} else if messageKind == webService.KIND_FORWARD {
 			webService.ForwardChan <- &newMessage
@@ -68,6 +72,18 @@ func messageDispatcher() {
 			webService.ForwardAckChan <- &newMessage
 		} else if messageKind == webService.KIND_FETCH_ACK {
 			webService.FetchAckChan <- &newMessage
+		} else if messageKind == webService.KIND_COMMENT {
+			webService.CommentChan <- &newMessage
+		} else if messageKind == webService.KIND_COMMENT_ACK {
+			webService.CommentAckChan <- &newMessage
+		} else if messageKind == webService.KIND_UP_VOTE{
+			webService.UpVoteChan<- &newMessage
+		} else if messageKind == webService.KIND_UP_VOTE_ACK {
+			webService.UpVoteAckChan <- &newMessage
+		} else if messageKind == webService.KIND_DOWN_VOTE{
+			webService.DownVoteChan<- &newMessage
+		} else if messageKind == webService.KIND_DOWN_VOTE_ACK {
+			webService.DownVoteAckChan <- &newMessage
 		}
 	}
 }
