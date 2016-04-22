@@ -2,9 +2,9 @@ package msgToPetgagMsg
 
 import (
 	"fmt"
-	"github.com/pshastry/message"
-	"github.com/pshastry/petGagMessage"
-	"github.com/pshastry/petgagData"
+	"github.com/otnt/ds/message"
+	"github.com/otnt/ds/petGagMessage"
+	"github.com/otnt/ds/petgagData"
 	//"labix.org/v2/mgo/bson"
 	"bytes"
 	"encoding/json"
