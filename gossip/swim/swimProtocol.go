@@ -1,4 +1,4 @@
-package swimProtocol
+package swim
 
 import (
 	//"fmt"
@@ -18,9 +18,10 @@ type SwimProtocol struct {
 	// failure detector
 	failureDetector *FailureDetector
 
-	AckChan chan *message.Message
 	PingChan chan *message.Message
+	PingAckChan chan *message.Message
 	ForwardChan chan *message.Message
+	ForwardAckChan chan *message.Message
 }
 
 
@@ -67,6 +68,12 @@ func (swim *SwimProtocol) runForwardResponse() {
 		for {
 			msg := <-swim.ForwardChan
 			infra.SendUnicast(swim.failureDetector.forwardMessage(msg))
+			select {
+			case msg = <-swim.ForwardAckChan:
+				infra.SendUnicast(swim.failureDetector.ackMessage(msg))
+			case <-time.After(time.Millisecond * WAIT_TIME_DEFAULT):
+			}
+
 			swim.failureDetector.update(msg)
 		}
 	}()
@@ -77,7 +84,7 @@ func (swim *SwimProtocol) pingNext() bool {
 	infra.SendUnicast(swim.failureDetector.nextMessage())
 
 	select {
-	case rcvMsg := <-swim.AckChan:
+	case rcvMsg := <-swim.PingAckChan:
 		swim.failureDetector.update(rcvMsg)
 		return true
 	case <-time.After(time.Millisecond * WAIT_TIME_DEFAULT):
@@ -94,7 +101,7 @@ func (swim *SwimProtocol) pingRandom() bool {
 	}
 
 	select {
-	case rcvMsg := <-swim.AckChan:
+	case rcvMsg := <-swim.PingAckChan:
 		swim.failureDetector.update(rcvMsg)
 		return true
 	case <-time.After(time.Millisecond * WAIT_TIME_DEFAULT):
@@ -105,5 +112,9 @@ func (swim *SwimProtocol) pingRandom() bool {
 // Create new swim protocol detector
 func NewSwimProtocol(failureDetector *FailureDetector) *SwimProtocol {
 	swim := &SwimProtocol{failureDetector:failureDetector}
+
+	swim.PingAckChan = make(chan *message.Message)
+	swim.PingChan = make(chan *message.Message)
+	swim.ForwardChan = make(chan *message.Message)
 	return swim
 }

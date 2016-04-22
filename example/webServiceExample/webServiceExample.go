@@ -11,6 +11,7 @@ import (
 	"time"
 	"strconv"
 	"github.com/otnt/ds/message"
+	"github.com/otnt/ds/gossip/swim"
 )
 
 func main() {
@@ -42,6 +43,11 @@ func main() {
 	ws:= webService.WebService{Port: port}
 	ws.Run(ring)
 
+	//init gossip protocol
+	failureDetector := swim.NewFailureDetector(ring)
+	swimProtocol := swim.NewSwimProtocol(failureDetector)
+	swimProtocol.Run()
+
 	//incoming message dispatcher
 	go func() {
 		for {
@@ -58,6 +64,10 @@ func main() {
 					webService.ForwardAckChan <- &newMessage
 				} else if messageKind == webService.KIND_FETCH_ACK {
 					webService.FetchAckChan <- &newMessage
+				} else if messageKind == swim.SWIM_PING {
+					swimProtocol.PingChan <- &newMessage
+				} else if messageKind == swim.SWIM_RANDOM {
+					swimProtocol.ForwardChan <- &newMessage
 				}
 
 			case <-time.After(time.Millisecond * 1):

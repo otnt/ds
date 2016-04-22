@@ -1,4 +1,4 @@
-package swimProtocol
+package swim
 
 import (
 	"github.com/otnt/ds/node"
@@ -13,8 +13,9 @@ import (
 
 const (
 	SWIM_PING = "swim_ping"
+	SWIM_PING_ACK = "swim_ack"
 	SWIM_RANDOM = "swim_random"
-	SWIM_ACK = "swim_ack"
+	SWIM_RANDOM_ACK = "swim_random_ack"
 )
 
 // Send this message to other failure detector
@@ -75,7 +76,7 @@ func (fd *FailureDetector) ackMessage(msg *message.Message) (string, string, str
 			information:fd.nodes,
 		},
 	)
-	return msg.Src, SWIM_ACK, buf.String()
+	return msg.Src, SWIM_PING_ACK, buf.String()
 }
 
 func (fd *FailureDetector) forwardMessage(msg *message.Message) (string, string, string) {
