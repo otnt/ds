@@ -4,11 +4,12 @@ import (
 	"fmt"
 	ch "github.com/otnt/ds/consistentHashing"
 	"github.com/otnt/ds/infra"
+	"github.com/otnt/ds/message"
+	"github.com/otnt/ds/mongoDBintegration"
+	"github.com/otnt/ds/msgToPetgagMsg"
 	"github.com/otnt/ds/node"
 	"github.com/otnt/ds/replication"
 	"github.com/otnt/ds/webService"
-	//"github.com/otnt/ds/replication"
-	"github.com/otnt/ds/message"
 	"os"
 	"strconv"
 	"time"
@@ -52,11 +53,13 @@ func messageDispatcher() {
 			messageKind := message.GetKind(&newMessage)
 
 			if messageKind == "forward" {
+				newPGMessage := msgToPetgagMsg.ConvertToPGMsg(&newMessage)
 				replication.UpdateSelfDB(&newMessage, mongoSession)
 				replication.AskNodesToUpdate(&newMessage, mongoSession)
 				go replication.WaitForAcks()
 				replication.RespondToClient()
 			} else if messageKind == "replication" { /* At the secondary */
+				newPGMessage := msgToPetgagMsg.ConvertToPGMsg(&newMessage)
 				replication.UpdateSelfDB(&newMessage, mongoSessions)
 				replication.SendAcks(&newMessage)
 			} else if messageKind == "acknowledgement" { /* Acks processing at the primary */
