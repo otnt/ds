@@ -1,4 +1,4 @@
-package webService
+package main
 
 import (
 	"fmt"
@@ -8,8 +8,11 @@ import (
 	"log"
 )
 
+
+
 /* struct used to insert a comment on a particular post*/
 type AddCommentMsg struct {
+	ImageId string
 	ImageURL string
 	UName string
 	Comment string
@@ -17,26 +20,25 @@ type AddCommentMsg struct {
 
 /* struct used to upvote/downvote  a particular post*/
 type VoteMsg struct {
+	ImageId string
 	ImageURL string
 }
 
 type Comments struct {
-		UserCName 		string			`bson: "UserCName"`
-		Comment         string			`bson: "Comment"`
+		UserCName 		string			
+		Comment         string
 }
 
 type PetGagPost struct {
 	/*	PetGagMessage *message.Message */
-	BelongsTo     string
+	BelongsTo     string 
 	DbOp          string
-	ImageURL      string `bson: "ImageUrl"`
-	CommentList   []Comments `bson: "CommentList"`
-	UpVote        int `bson: "UpVote"`
-	DownVote      int `bson: "DownVote"`
-	UserName      string `bson: "UserName"`
-	UserID        string
-	//ObjID         string /* Use same name to avoid confusing */
-	ImageId 	  string
+	ImageURL      string
+	CommentList   []Comments
+	UpVote        int
+	DownVote      int
+	UserName      string
+	ObjID         string
 }
 
 
@@ -77,10 +79,10 @@ func (msg *AddCommentMsg) addCommmentInDB() (err error) {
 
 	collection := session.DB("PetGagDatabase").C("PetGagPosts")
 
-	id := bson.ObjectIdHex(msg.ImageURL) 
+	id := bson.ObjectIdHex(msg.ImageId) 
 
 	doc := collection.FindId(id)
-	change := mgo.Change{Update: bson.M{"$push": bson.M{"CommentList": bson.M{"UserCName": msg.UName, "Comment": msg.Comment}}}, ReturnNew: true}
+	change := mgo.Change{Update: bson.M{"$push": bson.M{"commentlist": bson.M{"usercname": msg.UName, "comment": msg.Comment}}}, ReturnNew: true}
 	_, err = doc.Apply(change, &doc)
 
 
@@ -98,10 +100,10 @@ func (msg *VoteMsg) downvotePost() (err error){
 
 	collection := session.DB("PetGagDatabase").C("PetGagPosts")
 
-	id := bson.ObjectIdHex(msg.ImageURL) 
+	id := bson.ObjectIdHex(msg.ImageId) 
 
 	doc := collection.FindId(id)
-	change := mgo.Change{Update: bson.M{"$inc": bson.M{"DownVote": 1} /*, "$push": bson.M{"SharedImage.$.UpVotedUsers.$.UserName": user_name}*/}, ReturnNew: true}
+	change := mgo.Change{Update: bson.M{"$inc": bson.M{"downvote": 1} /*, "$push": bson.M{"SharedImage.$.UpVotedUsers.$.UserName": user_name}*/}, ReturnNew: true}
 	_, err = doc.Apply(change, &doc)
 
 	if err != nil {
@@ -117,12 +119,12 @@ func (msg *VoteMsg) upvotePost() (err error){
 
 	collection := session.DB("PetGagDatabase").C("PetGagPosts")
 
-	id := bson.ObjectIdHex(msg.ImageURL)
+	id := bson.ObjectIdHex(msg.ImageId)
 	fmt.Println(id) 
 
 
 	doc := collection.FindId(id)
-	change := mgo.Change{Update: bson.M{"$inc": bson.M{"UpVote": 1} /*, "$push": bson.M{"SharedImage.$.UpVotedUsers.$.UserName": user_name}*/}, ReturnNew: true}
+	change := mgo.Change{Update: bson.M{"$inc": bson.M{"upvote": 1} /*, "$push": bson.M{"SharedImage.$.UpVotedUsers.$.UserName": user_name}*/}, ReturnNew: true}
 	_, err = doc.Apply(change, &doc)
 
 	if err != nil {
@@ -140,7 +142,8 @@ func (post *PetGagPost) Write() (err error) {
 
 	collection := session.DB("PetGagDatabase").C("PetGagPosts")
 
-	// will change following api, inserts the json tags as 'lower case' which is not right!
+	// Prathi should do something like : if(post.ObjId is nil and then create an id before inserting into db)
+	// simply do post.ObjId = new Object id()
 	err = collection.Insert(post)
 
 	if err != nil {
