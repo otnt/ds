@@ -54,14 +54,14 @@ func messageDispatcher() {
 
 			if messageKind == "forward" {
 				newPGMessage := msgToPetgagMsg.ConvertToPGMsg(&newMessage)
-				replication.UpdateSelfDB(&newMessage, mongoSession)
-				replication.AskNodesToUpdate(&newMessage, mongoSession)
+				replication.UpdateSelfDB(&newPGMessage, mongoSession)
+				replication.AskNodesToUpdate(&newPGMessage, mongoSession)
 				go replication.WaitForAcks()
 				replication.RespondToClient()
 			} else if messageKind == "replication" { /* At the secondary */
 				newPGMessage := msgToPetgagMsg.ConvertToPGMsg(&newMessage)
-				replication.UpdateSelfDB(&newMessage, mongoSessions)
-				replication.SendAcks(&newMessage)
+				replication.UpdateSelfDB(&newPGMessage, mongoSessions)
+				replication.SendAcks(&newPGMessage)
 			} else if messageKind == "acknowledgement" { /* Acks processing at the primary */
 				replication.ProcessAcks()
 			} else if messageKind == webService.KIND_FORWARD {
