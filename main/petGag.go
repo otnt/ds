@@ -68,6 +68,18 @@ func messageDispatcher() {
 			webService.ForwardAckChan <- &newMessage
 		} else if messageKind == webService.KIND_FETCH_ACK {
 			webService.FetchAckChan <- &newMessage
+		} else if messageKind == webService.KIND_COMMENT {
+			webService.CommentChan <- &newMessage
+		} else if messageKind == webService.KIND_COMMENT_ACK {
+			webService.CommentAckChan <- &newMessage
+		} else if messageKind == webService.KIND_UP_VOTE{
+			webService.UpVoteChan<- &newMessage
+		} else if messageKind == webService.KIND_UP_VOTE_ACK {
+			webService.UpVoteAckChan <- &newMessage
+		} else if messageKind == webService.KIND_DOWN_VOTE{
+			webService.DownVoteChan<- &newMessage
+		} else if messageKind == webService.KIND_DOWN_VOTE_ACK {
+			webService.DownVoteAckChan <- &newMessage
 		}
 	}
 }

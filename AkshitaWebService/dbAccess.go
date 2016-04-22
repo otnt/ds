@@ -35,7 +35,8 @@ type PetGagPost struct {
 	DownVote      int `bson: "DownVote"`
 	UserName      string `bson: "UserName"`
 	UserID        string
-	ObjID         string
+	//ObjID         string /* Use same name to avoid confusing */
+	ImageId 	  string
 }
 
 
