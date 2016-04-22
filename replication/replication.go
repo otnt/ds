@@ -21,7 +21,7 @@ import (
 	"fmt"
 	ch "github.com/otnt/ds/consistentHashing"
 	"github.com/otnt/ds/infra"
-	"github.com/otnt/ds/mongoDBintegration"
+	mongoDBintegration "github.com/otnt/ds/mongoDbintegration"
 	//"github.com/otnt/ds/node"
 	"github.com/otnt/ds/petGagMessage"
 	//"github.com/otnt/ds/petgagData"
@@ -57,7 +57,7 @@ func InitReplication(r *ch.Ring) {
 
 /* Functions to be implemented if the message is of kind forward */
 
-func updateSelfDB(msg petGagMessage.PetGagMessage, mongoSession *mgo.Session) (objIDHex string) {
+func UpdateSelfDB(msg *petGagMessage.PetGagMessage, mongoSession *mgo.Session) (objIDHex string) {
 	operation := msg.PGData.DbOp
 
 	if operation == "Insert" {
@@ -69,17 +69,18 @@ func updateSelfDB(msg petGagMessage.PetGagMessage, mongoSession *mgo.Session) (o
 	}
 
 	if operation == "Upvote" {
-		mongoDBintegration.UpVotePicture(mongoSession, bson.ObjectIdHex(msg.PGData.ObjID), msg.PGData.UserName, msg.PGData.UpVote, msg.PGData.BelongsTo)
+		mongoDBintegration.UpVotePicture(mongoSession, bson.ObjectIdHex(msg.PGData.ObjID), msg.PGData.UpVote, msg.PGData.BelongsTo)
 		return "success"
 	}
 
 	if operation == "Downvote" {
-		mongoDBintegration.DownVotePicture(mongoSession, bson.ObjectIdHex(msg.PGData.ObjID), msg.PGData.UserName, msg.PGData.DownVote, msg.PGData.BelongsTo)
+		mongoDBintegration.DownVotePicture(mongoSession, bson.ObjectIdHex(msg.PGData.ObjID), msg.PGData.DownVote, msg.PGData.BelongsTo)
 		return "success"
 	}
 
 	if operation == "Comment" {
-		mongoDBintegration.CommentOnPicture(mongoSession, bson.ObjectIdHex(msg.PGData.ObjID), msg.PGData.UserName, msg.PGData.Comment, msg.PGData.BelongsTo)
+		comment := msg.PGData.Commt
+		mongoDBintegration.CommentOnPicture(mongoSession, bson.ObjectIdHex(msg.PGData.ObjID), comment[len(comment)-1].UserName, comment[len(comment)-1].Comt, msg.PGData.BelongsTo)
 		return "success"
 	}
 
@@ -92,7 +93,7 @@ func updateSelfDB(msg petGagMessage.PetGagMessage, mongoSession *mgo.Session) (o
 	}
 }
 
-func AskNodesToUpdate(message petGagMessage.PetGagMessage, mongoSession *mgo.Session) {
+func AskNodesToUpdate(message *petGagMessage.PetGagMessage, mongoSession *mgo.Session) {
 	//var secondaryNode node.Node
 	var secNodeKeys []string
 	//var localNode *node.Node = infra.GetLocalNode()
@@ -118,7 +119,7 @@ func AskNodesToUpdate(message petGagMessage.PetGagMessage, mongoSession *mgo.Ses
 
 }
 
-func GetKey(message petGagMessage.PetGagMessage) string {
+func GetKey(message *petGagMessage.PetGagMessage) string {
 	data := StructToString(message)
 	dataKey := ring.Hash(data)
 	_, currentKey, err := ring.LookUp(dataKey)
@@ -138,23 +139,24 @@ func WaitForAcks() {
 	}
 }
 
-func ProcessAcks(message petGagMessage.PetGagMessage) {
+func ProcessAcks() {
 	numAcks = numAcks + 1
 }
 
-func RespondToClient(message petGagMessage.PetGagMessage) {
-	infra.SendUnicast(message.PGData.BelongsTo, "Completed Replication", "response")
+func RespondToClient() {
+	//infra.SendUnicast(message.PGData.BelongsTo, "Completed Replication", "response")
+	fmt.Println("Replication is now complete")
 }
 
 /* Functions to be implemented if the message is of kind replicate */
-func SendAcks(message petGagMessage.PetGagMessage) {
+func SendAcks(message *petGagMessage.PetGagMessage) {
 	infra.SendUnicast(message.PGMessage.Src, "Received", "acknowledgement")
 
 }
 
 /***********************************************************************/
 
-func StructToString(message petGagMessage.PetGagMessage) (encoded_msg string) {
+func StructToString(message *petGagMessage.PetGagMessage) (encoded_msg string) {
 	var buf bytes.Buffer
 	data := message.PGData
 	json.NewEncoder(&buf).Encode(data)

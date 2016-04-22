@@ -10,8 +10,9 @@ type PetGagMessage struct {
 	PGData    *petgagData.PetgagData
 }
 
-func NewPetGagMessage(msg *message.Message, data *petgagData.PetgagData) {
-	newPetgagMessage := &PetGagMessage{}
-	newPetgagMessage.PGMessage = msg
-	newPetgagMessage.PGData = data
+func NewPetGagMessage(msg *message.Message, data *petgagData.PetgagData) PetGagMessage {
+	newPGMessage := PetGagMessage{}
+	newPGMessage.PGMessage = msg
+	newPGMessage.PGData = data
+	return newPGMessage
 }
