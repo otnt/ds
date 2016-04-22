@@ -28,6 +28,9 @@ type Node struct {
 	//when the membership protocol knows consistent hashing has
 	//saved this Node, then it's marked as saved
 	Saved bool
+
+	//Status for failure detector
+	Status interface{}
 }
 
 func NewNode(hostname string, ip string, port int, vnodeNum int) (node *Node) {

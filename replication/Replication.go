@@ -15,124 +15,148 @@
 /********************************************************************************************************************/
 
 /* Add a field original_source to the data => signifies which node the data should belong to */
-
+package replication
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
-	"net"
-	"strings"
+	ch "github.com/otnt/ds/consistentHashing"
 	"github.com/otnt/ds/infra"
-	"github.com/otnt/ds/node"
 	"github.com/otnt/ds/mongoDBintegration"
-	"github.com/otnt/ds/PetGagData"
-	"gopkg.in/yaml.v2"
-	"strings"
+	//"github.com/otnt/ds/node"
+	"github.com/otnt/ds/petGagMessage"
+	//"github.com/otnt/ds/petgagData"
+	"bytes"
+	"encoding/json"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
-	"github.com/otnt/ds/consistentHashing"
-	"github.com/otnt/ds/ReceiverThread"
 )
 
-type replicaNode struct {
-	const replicationFactor int = 2
-	numAcks int
+type DbOperation int
+
+const (
+	Insert DbOperation = 1 + iota
+	Upvote
+	Downvote
+	Comment
+	Delete
+)
+
+const replicationFactor int = 2
+
+var numAcks int = 0
+var ring *ch.Ring
+
+func InitReplication(r *ch.Ring) {
+	ring = r
 }
 
-/* Getter and Setter for numAcks */
-
-
-func initMongoDB() (mongoSession *mgo.Session) {
-	mongoSession = establishSession()
-}
+/* func InitMongoDB() (mongoSession *mgo.Session) {
+	mongoSession = mongoDBintegration.EstablishSession()
+	return mongoSession
+} */
 
 /* Functions to be implemented if the message is of kind forward */
 
-func updateSelfDB(message PetGagMessage) (objIDHex string){
-	switch message.PetGagData.DbOp {
-		case Insert:
-			objID := insertPicture(mongoSession, message.PetGagData.ImageURL, message.PetGagData.UserName, message.PetGagData.BelongsTo)
-			message.ObjID = objID
-			return objID.Hex
+func updateSelfDB(msg petGagMessage.PetGagMessage, mongoSession *mgo.Session) (objIDHex string) {
+	operation := msg.PGData.DbOp
 
-		case Upvote:
-			err := upVotePicture(mongoSession, ObjectIdHex(message.PetGagData.ObjID), message.PetGagData.UserName, message.PetGagData.UpVote, message.PetGagData.BelongsTo)
-			if (err != nil) {
-				fmt.Println("Error in upvoting picture, %s\n", err)
-			}
-			break;
+	if operation == "Insert" {
 
-		case Downvote:
-			err := downVotePicture(mongoSession, ObjectIdHex(message.PetGagData.ObjID), message.PetGagData.UserName, message.PetGagData.DownVote, message.PetGagData.BelongsTo)
-			if (err != nil) {
-				fmt.Println("Error in downvoting picture, %s\n", err)
-			}
-			break;
+		/* Each user has his own collection. Collections are names after users */
+		objID := mongoDBintegration.InsertPicture(mongoSession, msg.PGData.ImageURL, msg.PGData.UserName, msg.PGData.BelongsTo, msg.PGData.ObjID)
+		msg.PGData.ObjID = objID.Hex()
+		return msg.PGData.ObjID
+	}
 
-		case Comment:
-			err := commentOnPicture(mongoSession, ObjectIdHex(message.PetGagData.ObjID), message.PetGagData.UName, message.PetGagData.Comment, message.PetGagData.BelongsTo)
-			if (err != nil) {
-				fmt.Println("Error in commenting on picture, %s\n", err)
-			}
-			break;
+	if operation == "Upvote" {
+		mongoDBintegration.UpVotePicture(mongoSession, bson.ObjectIdHex(msg.PGData.ObjID), msg.PGData.UserName, msg.PGData.UpVote, msg.PGData.BelongsTo)
+		return "success"
+	}
 
-		case Delete:
-			err := deleteFromDB(mongoSession , ObjectIdHex(message.PetGagData.ObjID), message.PetGagData.BelongsTo)
-			if (err != nil) {
-				fmt.Println("Error in deleting picture, %s\n", err)
-			}
-			break;
+	if operation == "Downvote" {
+		mongoDBintegration.DownVotePicture(mongoSession, bson.ObjectIdHex(msg.PGData.ObjID), msg.PGData.UserName, msg.PGData.DownVote, msg.PGData.BelongsTo)
+		return "success"
+	}
 
-		default:
-			fmt.Println("Enter the correct operation: Insert / Upvote / Downvote / Comment / Delete")
-			break;
+	if operation == "Comment" {
+		mongoDBintegration.CommentOnPicture(mongoSession, bson.ObjectIdHex(msg.PGData.ObjID), msg.PGData.UserName, msg.PGData.Comment, msg.PGData.BelongsTo)
+		return "success"
+	}
+
+	if operation == "Delete" {
+		mongoDBintegration.DeleteFromDB(mongoSession, bson.ObjectIdHex(msg.PGData.ObjID), msg.PGData.BelongsTo)
+		return "success"
+	} else {
+		fmt.Println("Enter the correct operation: Insert / Upvote / Downvote / Comment / Delete")
+		return ""
 	}
 }
 
-func AskNodesToUpdate(message PetGagMessage) {
-	var secondaryNodes []node.Node
-	var localNode node.Node = GetLocalNode()
-	secondaryNodes = append(secondaryNodes, localNode)
+func AskNodesToUpdate(message petGagMessage.PetGagMessage, mongoSession *mgo.Session) {
+	//var secondaryNode node.Node
+	var secNodeKeys []string
+	//var localNode *node.Node = infra.GetLocalNode()
+	var nodeKey string = GetKey(message)
 
-	for(int i = 1; i <= replicationFactor; i++) {
-		newNode, err := Successor(secondaryNodes[i-1])
-		if (err != nil) {
-			fmt.Println("Error in obtaining successor node %s",err)
+	secNodeKeys = append(secNodeKeys, nodeKey)
+
+	for i := 1; i <= replicationFactor; i++ {
+		_, newNodeKey, err := ring.Successor(secNodeKeys[i-1])
+		if err != nil {
+			fmt.Println("Error in obtaining successor node %s", err)
 		}
-		secondaryNodes = append(secondaryNodes, newNode)
+		secNodeKeys = append(secNodeKeys, newNodeKey)
+	}
+	for i := 1; i < replicationFactor; i++ {
+		secondaryNode, err := ring.Get(secNodeKeys[i])
+		if err == false {
+			fmt.Println("Error in obtaining node from key: %s\n", err)
+		}
+		encoded_data := StructToString(message)
+		infra.SendUnicast(secondaryNode.Hostname, encoded_data, "replication")
 	}
 
-	for(int i = 1; i < replicationFactor; i++) {
-		SendUnicast(secondaryNodes[i], message.Data, "replication")
-	}
+}
 
+func GetKey(message petGagMessage.PetGagMessage) string {
+	data := StructToString(message)
+	dataKey := ring.Hash(data)
+	_, currentKey, err := ring.LookUp(dataKey)
+	if err != nil {
+		fmt.Println("Error in obtaining key")
+	}
+	return currentKey
 }
 
 func WaitForAcks() {
-	var int acksObtained = 0
-	for() {
-		acksObtained = 
-
+	var acksObtained int = 0
+	for {
+		acksObtained = numAcks
+		if acksObtained == replicationFactor {
+			break
+		}
 	}
 }
 
-func processAcks(message PetGagMessage) {
-
-
+func ProcessAcks(message petGagMessage.PetGagMessage) {
+	numAcks = numAcks + 1
 }
 
-func respondToClient() {
-
-
+func RespondToClient(message petGagMessage.PetGagMessage) {
+	infra.SendUnicast(message.PGData.BelongsTo, "Completed Replication", "response")
 }
 
 /* Functions to be implemented if the message is of kind replicate */
-func sendAcks(message PetGagMessage) {
-	SendUnicast(message.Src, "Received", "acknowledgement")
+func SendAcks(message petGagMessage.PetGagMessage) {
+	infra.SendUnicast(message.PGMessage.Src, "Received", "acknowledgement")
 
 }
 
-/* Reuse updateSelfDB() */
+/***********************************************************************/
 
-
+func StructToString(message petGagMessage.PetGagMessage) (encoded_msg string) {
+	var buf bytes.Buffer
+	data := message.PGData
+	json.NewEncoder(&buf).Encode(data)
+	return buf.String()
+}

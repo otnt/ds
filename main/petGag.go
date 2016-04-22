@@ -2,15 +2,15 @@ package main
 
 import (
 	"fmt"
-	"github.com/otnt/ds/webService"
-	//"github.com/otnt/ds/replication"
 	ch "github.com/otnt/ds/consistentHashing"
 	"github.com/otnt/ds/infra"
 	"github.com/otnt/ds/node"
-	//"github.com/otnt/ds/replication"
+	"github.com/otnt/ds/webService"
+	"github.com/otnt/ds/replication"
+	"github.com/otnt/ds/message"
 	"os"
 	"strconv"
-	"github.com/otnt/ds/message"
+	//"github.com/otnt/ds/message"
 )
 
 func main() {
@@ -24,7 +24,7 @@ func main() {
 
 	//init consistent hashing
 	ring := ch.NewRing()
-	for _,n:= range infra.NodeIndexMap{
+	for _, n := range infra.NodeIndexMap {
 		nn := node.Node(*n)
 		ring.AddSync(&nn)
 	}
@@ -43,12 +43,23 @@ func main() {
 }
 
 func messageDispatcher() {
+	//init MongoDB
+	mongoSession := mongoDBintegration.EstablishSession()
 	for {
 		newMessage := <-infra.ReceivedBuffer
 		messageKind := message.GetKind(&newMessage)
 
-		if messageKind == "replication" {
-			//replication.NameOfFunction(&newMessage)
+		if messageKind == "forward" {
+			replication.UpdateSelfDB(&newMessage, mongoSession)
+			replication.AskNodesToUpdate(&newMessage, mongoSession)
+			go replication.WaitForAcks()
+			replication.RespondToClient()
+		} else if messageKind == "replication" {
+			replication.UpdateSelfDB(&newMessage, mongoSessions)
+			replication.SendAcks(&newMessage)
+		} else if messageKind == "acknowledgement" { 
+			/* Acks processing at the primary */
+			replication.ProcessAcks()
 		} else if messageKind == webService.KIND_FORWARD {
 			webService.ForwardChan <- &newMessage
 		} else if messageKind == webService.KIND_FETCH {

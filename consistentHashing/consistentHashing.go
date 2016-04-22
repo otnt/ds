@@ -38,6 +38,14 @@ func (ring *Ring) Hash(value string) string {
 		return fmt.Sprintf("%x", h.Sum(nil))
 }
 
+// Update status of a node
+func (ring *Ring) UpdateStatus(n *node.Node) {
+	nn, found := ring.Get(n.Keys[0])
+	if found {
+		nn.Status = n.Status
+	}
+}
+
 //Add a new Node to consistent hashing ring.
 //This function block the running routine until the Node
 //is successfully added.

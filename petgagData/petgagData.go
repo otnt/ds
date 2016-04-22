@@ -5,54 +5,38 @@ import (
 //"github.com/otnt/ds/petGagMessage"
 )
 
-/*
-type DbOperation int
-
-const (
-	Insert DbOperation = 1 + iota
-	Upvote
-	Downvote
-	Comment
-	Delete
-) */
+type Comment struct {
+	Comment string `bson:"comment"`
+	//UserID   string `bson:"user_comment"`
+	UserName string `bson:"user_name"`
+}
 
 type PetgagData struct {
 	/*	PetGagMessage *message.Message */
 	BelongsTo string
-	DbOp      string
+	DbOp      string /* can take "Insert", "Upvote", "Downvote"", "Comment" or "Delete" values */
 	ImageURL  string
-	Comment   string
+	Commt     []Comment
 	UpVote    int
 	DownVote  int
 	UserName  string
 	UserID    string
-	ObjID     string
+	ObjID     string /* hex string representation of Object ID. For new item, ObjID = "nil" */
 }
 
-/*func NewPetGagData(msg message.Message, dbOp DbOperation, comment string, upVote int, downVote int, userName string, objID string, collection string, imageURL string, belongsTo string) (petGagData *PetgagData) {
-	petGagData = &PetgagData{}
-	petGagData.PetGagMessage.Data = msg.Data
-	petGagData.DbOp = dbOp
-	petGagData.Comment = comment
-	petGagData.UpVote = upVote
-	petGagData.DownVote = downVote
-	petGagData.UserName = userName
-	petGagData.ObjID = objID
-	petGagData.ImageURL = imageURL
-	petGagData.BelongsTo = belongsTo
-	return petGagData
-}  */
-
-func NewPetGagData(dbOp string, comment string, upVote int, downVote int, userName string, userID string, objID string, collection string, imageURL string, belongsTo string) (petGagData *PetgagData) {
-	petGagData = &PetgagData{}
-	petGagData.DbOp = dbOp
-	petGagData.Comment = comment
-	petGagData.UpVote = upVote
-	petGagData.DownVote = downVote
-	petGagData.UserName = userName
-	petGagData.UserID = userID
-	petGagData.ObjID = objID
-	petGagData.ImageURL = imageURL
-	petGagData.BelongsTo = belongsTo
-	return petGagData
+func NewPetGagData(dbOp string, comment Comment, upVote int, downVote int, userName string, userID string, objID string, collection string, imageURL string, belongsTo string) (data *PetgagData) {
+	data = &PetgagData{}
+	data.Commt = make([]Comment, 1000)
+	data.Commt[0] = comment
+	//data.Commt.Comment = comment.Comment
+	//data.Commt.UserName = comment.UserName
+	data.DbOp = dbOp
+	data.UpVote = upVote
+	data.DownVote = downVote
+	data.UserName = userName
+	data.UserID = userID
+	data.ObjID = objID
+	data.ImageURL = imageURL
+	data.BelongsTo = belongsTo
+	return data
 }

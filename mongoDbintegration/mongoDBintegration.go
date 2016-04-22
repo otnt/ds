@@ -2,7 +2,7 @@ package mongoDBintegration
 
 import (
 	//"github.com/pshastry/node"
-	//"fmt"
+	"fmt"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"log"
@@ -10,44 +10,22 @@ import (
 	//"sync"
 )
 
-/* const {
-	MongoDBHosts = ""
-	AuthDB = ""
-	AuthUserName = ""
-	AuthPassword = ""
-} */
-
 type (
 	// Contains information about the comments - this is an embedded document
 	Comments struct {
-		Comment string `bson:"comment"`
+		Comment string `bson:"comments"`
 		//UserID   string `bson:"user_comment"`
 		UserName string `bson:"user_name"`
 	}
 
-	// Contains information about the votes - this is an embedded document
-	UpVotes struct {
-		//UpVote int 'bson: "upvote_num"'
-		//UserID   string `bson:"upvoter_id"`
-		//Upvotes  int    `bson:"upvote_num"`
-		UpvotedUsers []string `bson:"user_name"`
-	}
-
-	DownVotes struct {
-		//Downvotes int    `bson:"downvote_num"`
-		DownvotedUsers []string `bson:"user_name"`
-	}
-
 	// Contains information about the main document - the image uploaded
 	SharedImage struct {
-		ImageID        bson.ObjectId `bson:"_id, omitempty"`
-		ImageURL       string        `bson:"image_data"`
-		UserName       string        `bson:"user_name"`
-		UpVote         int           `bson:"upvote_num"`
-		DownVote       int           `bson:"downvote_num"`
-		Commt          []Comments    `bson:"comment"`
-		UpVotedUsers   UpVotes       `bson:"upvote"`
-		DownVotedUsers DownVotes     `bson:"downvote"`
+		ImageID  bson.ObjectId `bson:"_id"`
+		ImageURL string        `bson:"image_data"`
+		UserName string        `bson:"user_name"`
+		UpVote   int           `bson:"upvote_num"`
+		DownVote int           `bson:"downvote_num"`
+		Commt    []Comments    `bson:"comment"`
 	}
 
 	SharedImages struct {
@@ -81,21 +59,22 @@ func EstablishSession() *mgo.Session {
 	(e.g. a Monotonic session will be allowed to read from secondaries again).*/
 
 	mongoSession.SetMode(mgo.Monotonic, true)
+	fmt.Println("Successfully created session")
 	return mongoSession
 
 }
 
 /* Get a single image given the objectID */
 
-func GetFromDB(mongoSession *mgo.Session, id bson.ObjectId) SharedImage {
+func GetFromDB(mongoSession *mgo.Session, id bson.ObjectId, collection_name string) SharedImage {
 	sessionCopy := mongoSession.Copy()
 	defer sessionCopy.Close()
 
 	// Get a collection to execute the query against
-	collection := mongoSession.DB("Database").C("SharedImages")
+	collection := mongoSession.DB("Database").C(collection_name)
 	// Retrieve the image
 	var image SharedImage
-	err := collection.FindId(bson.ObjectId(id)).One(&image)
+	err := collection.FindId(id).One(&image)
 	if err != nil {
 		log.Println("Get from DB error : %s\n", err)
 	}
@@ -117,7 +96,7 @@ func GetOwnDB(mongoSession *mgo.Session, collection_name string) []SharedImage {
 	return images
 }
 
-/* Get all images posted by all users */
+/* Get all images posted by all users. Loops through all collections */
 func GetAllfromDB(mongoSession *mgo.Session) SharedImages {
 	sessionCopy := mongoSession.Copy()
 	defer sessionCopy.Close()
@@ -141,8 +120,17 @@ func GetAllfromDB(mongoSession *mgo.Session) SharedImages {
 }
 
 /* Max file size supported is 16 MB */
-func InsertPicture(mongoSession *mgo.Session, imageURL string, user_name string, collection_name string) (i bson.ObjectId) {
-	i = bson.NewObjectId()
+func InsertPicture(mongoSession *mgo.Session, imageURL string, user_name string, collection_name string, objID string) (i bson.ObjectId) {
+	if objID == "nil" {
+		i = bson.NewObjectId()
+	} else {
+		if bson.IsObjectIdHex(objID) {
+			i = bson.ObjectIdHex(objID)
+		} else {
+			fmt.Println("Not a valid Object ID")
+			i = bson.NewObjectId()
+		}
+	}
 	//collection := mongoSession.DB("Database").C("SharedImages")
 	collection := mongoSession.DB("Database").C(collection_name)
 	//err := SharedImages.Insert(image)
@@ -153,30 +141,32 @@ func InsertPicture(mongoSession *mgo.Session, imageURL string, user_name string,
 	return i
 }
 
-func UpVotePicture(mongoSession *mgo.Session, id bson.ObjectId, user_name string, vote int, collection_name string) {
+/* Increments number of upvotes by vote */
+func UpVotePicture(mongoSession *mgo.Session, id bson.ObjectId, vote int, collection_name string) {
 	collection := mongoSession.DB("Database").C(collection_name)
 	doc := collection.FindId(id)
-	change := mgo.Change{Update: bson.M{"$inc": bson.M{"SharedImage.$.UpVote": 1}, "$push": bson.M{"SharedImage.$.UpVotedUsers.$.UserName": user_name}}, ReturnNew: true}
+	change := mgo.Change{Update: bson.M{"$inc": bson.M{"upvote_num": vote} /*, "$push": bson.M{"SharedImage.$.UpVotedUsers.$.UserName": user_name}*/}, ReturnNew: true}
 	_, err := doc.Apply(change, &doc)
 	if err != nil {
 		log.Println("Update error : %s\n", err)
 	}
 }
 
-func DownVotePicture(mongoSession *mgo.Session, id bson.ObjectId, user_name string, vote int, collection_name string) {
+/* Increments number of downvotes by vote */
+func DownVotePicture(mongoSession *mgo.Session, id bson.ObjectId, vote int, collection_name string) {
 	collection := mongoSession.DB("Database").C(collection_name)
 	doc := collection.FindId(id)
-	change := mgo.Change{Update: bson.M{"$inc": bson.M{"SharedImage.$.DownVote": 1}, "$push": bson.M{"SharedImage.$.DownVotedUsers.$.UserName": user_name}}, ReturnNew: true}
+	change := mgo.Change{Update: bson.M{"$inc": bson.M{"downvote_num": vote} /*, "$push": bson.M{"SharedImage.$.DownVotedUsers.$.UserName": user_name}*/}, ReturnNew: true}
 	_, err := doc.Apply(change, &doc)
 	if err != nil {
 		log.Println("Update error : %s\n", err)
 	}
 }
 
-func CommentOnPicture(mongoSession *mgo.Session, id bson.ObjectId, user_name string, comt string, collection_name string) {
+func CommentOnPicture(mongoSession *mgo.Session, id bson.ObjectId, un string, comt string, collection_name string) {
 	collection := mongoSession.DB("Database").C(collection_name)
 	doc := collection.FindId(id)
-	change := mgo.Change{Update: bson.M{"$push": bson.M{"SharedImage.$.Commt.$.UserName": user_name, "SharedImage.$.Commt.$.Comment": comt}}, ReturnNew: true}
+	change := mgo.Change{Update: bson.M{"$push": bson.M{"comment": bson.M{"user_name": un, "comments": comt}}}, ReturnNew: true}
 	_, err := doc.Apply(change, &doc)
 	if err != nil {
 		log.Println("Update error : %s\n", err)
@@ -185,11 +175,19 @@ func CommentOnPicture(mongoSession *mgo.Session, id bson.ObjectId, user_name str
 }
 
 func DeleteFromDB(mongoSession *mgo.Session, id bson.ObjectId, collection_name string) {
-	collection := mongoSession.DB("Database").C("collection_name")
+	collection := mongoSession.DB("Database").C(collection_name)
 	err := collection.Remove(bson.ObjectId(id))
 	if err != nil {
 		log.Println("Remove from DB error : %s\n", err)
 		return
 	}
+}
 
+func DeleteAllFromDB(mongoSession *mgo.Session, collection_name string) {
+	collection := mongoSession.DB("Database").C(collection_name)
+	_, err := collection.RemoveAll(nil)
+	if err != nil {
+		log.Println("Remove all from DB error : %s\n", err)
+		return
+	}
 }

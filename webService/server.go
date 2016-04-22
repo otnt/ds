@@ -16,7 +16,7 @@ import (
 var ring *ch.Ring
 
 const (
-	KIND_FORWARD = "forward"
+	KIND_FORWARD = "ws_forward"
 	KIND_FETCH = "fetch"
 	KIND_FORWARD_ACK = "forward_ack"
 	KIND_FETCH_ACK = "fetch_ack"

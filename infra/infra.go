@@ -6,6 +6,7 @@ import (
 	"os"
 	"net"
 	"strings"
+	"time"
 	"github.com/otnt/ds/node"
 	"github.com/otnt/ds/message"
 	"gopkg.in/yaml.v2"
@@ -29,7 +30,7 @@ var NodeIndexMap map[string]*node.Node
 var connectionMap map[string]*net.TCPConn
 
 /* Node for the local host */
-var localNode *node.Node
+var LocalNode *node.Node
 
 var ReceivedBuffer chan message.Message
 
@@ -54,46 +55,74 @@ func listenerThread(conn *net.TCPConn) {
 		/* Clear message for next read */
 		readFromSocket = make([]byte, 4096)
 	}
+	
 }
 
 func SendUnicast(dest string, data string, kind string) {
 	
-	sendMessage := message.NewMessage(localNode.Hostname, dest, data, kind)
-	if dest == localNode.Hostname {
+	sendMessage := message.NewMessage(LocalNode.Hostname, dest, data, kind)
+	if dest == LocalNode.Hostname {
 		go func() { ReceivedBuffer <- sendMessage }()
 		return
 	}
-	conn := connectionMap[dest]
-	_, err := conn.Write(message.Marshal(&sendMessage))
-	checkError(err)
+	conn, ok := connectionMap[dest]
+	if ok {
+		_, err := conn.Write(message.Marshal(&sendMessage))
+		if err != nil {
+			/* Connection lost with the server, remove the server from the connection map and return */
+			fmt.Println("Error: Connection is lost with", dest)
+			delete(connectionMap, dest)
+		}
+	} else {
+		fmt.Println("Error: Destination [",dest,"] unknown")
+	}
 }
 
-func connectToNode(node *node.Node) {
+func connectToNode(node *node.Node) int {
 	/* Get the remote node TCP address */
 	service := fmt.Sprintf("%s:%d", node.Ip, node.Port)
 	tcpAddr, err := net.ResolveTCPAddr("tcp4", service)
-	checkError(err)
-
-	/* Connect to Server */
-	conn, err := net.DialTCP("tcp", nil, tcpAddr)
-	checkError(err)
-
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error [net.ResolveTCPAddr]: %s\n", err.Error())
+		return -1;
+	}
+	
+	/* Try to connect to the remote, sleep 5 seconds between retries */
+	var conn *net.TCPConn
+	for {
+	
+		/* Connect to Server */
+		conn, err = net.DialTCP("tcp", nil, tcpAddr)
+		if err == nil {
+			break
+		} else {
+			fmt.Fprintf(os.Stderr, "Error [net.DialTCP]: %s -- Retrying in 5 seconds\n", err.Error())
+			time.Sleep(5 * time.Second)
+			continue
+		}
+	}
+	
 	/* Send a connection message to identify self */
-	connectionMessage := fmt.Sprintf("HELO MESSAGE FROM %s CONNECT", localNode.Hostname)
+	connectionMessage := fmt.Sprintf("HELO MESSAGE FROM %s CONNECT", LocalNode.Hostname)
 	_, err = conn.Write([]byte(connectionMessage))
 	checkError(err)
-
+	
 	/* Save the net.Conn pointer to map using remote server's Uuid */
 	connectionMap[node.Hostname] = conn
 	go listenerThread(conn)
+	return 1
 }
 
 func connectToOtherServers(pYamlConfig *YamlConfig) {
 	for _, each := range pYamlConfig.Servers {
-		if each.Hostname > localNode.Hostname {
+		if each.Hostname > LocalNode.Hostname {
 			remoteNode := NodeIndexMap[each.Hostname]
-			connectToNode(remoteNode)
-			fmt.Println("Connected to", remoteNode.Hostname, " at ", remoteNode.Uuid)
+			if connectToNode(remoteNode) > 0 {
+				fmt.Println("Connected to", remoteNode.Hostname, "at", remoteNode.Uuid)
+			} else {
+				fmt.Println("Failed to connect to", remoteNode.Hostname, "at", remoteNode.Uuid)
+				os.Exit(1)
+			}
 		}
 	}
 }
@@ -103,11 +132,11 @@ func acceptConnectionsFromOtherServers(pYamlConfig *YamlConfig) {
 	connectionCount := 0
 	/* Every server before localHost in the list will attempt to connect */
 	for _, each := range pYamlConfig.Servers {
-                if each.Hostname < localNode.Hostname {
+                if each.Hostname < LocalNode.Hostname {
 			connectionCount++
                 }
         }
-	service := fmt.Sprintf(":%d", localNode.Port)
+	service := fmt.Sprintf(":%d", LocalNode.Port)
 	tcpAddr, err := net.ResolveTCPAddr("tcp4", service)
 	checkError(err)
 	listener, err := net.ListenTCP("tcp", tcpAddr)
@@ -162,10 +191,10 @@ func InitNetwork(localHost string) {
 	    fmt.Println("Key:", key, "Value:", value)
 	}
 
-	localNode = NodeIndexMap[localHost]
-	//localNode = yamlConfig.Servers[localHostIndex]
-	fmt.Printf("Local Host is [%s] at %s:%d\n", localNode.Hostname, localNode.Ip, localNode.Port)
-	fmt.Printf("Keys are: %+v\n", localNode.Keys)
+	LocalNode = NodeIndexMap[localHost]
+	//LocalNode = yamlConfig.Servers[localHostIndex]
+	fmt.Printf("Local Host is [%s] at %s:%d\n", LocalNode.Hostname, LocalNode.Ip, LocalNode.Port)
+	fmt.Printf("Keys are: %+v\n", LocalNode.Keys)
 	acceptConnectionsFromOtherServers(&yamlConfig)
 	connectToOtherServers(&yamlConfig)
 	fmt.Println("***************************************************")
@@ -174,7 +203,7 @@ func InitNetwork(localHost string) {
 }
 
 func GetLocalNode() *node.Node {
-	return localNode
+	return LocalNode
 }
 
 func CheckIncomingMessages() message.Message {
@@ -184,7 +213,6 @@ func CheckIncomingMessages() message.Message {
 
 func checkError(err error) {
     if err != nil {
-        fmt.Fprintf(os.Stderr, "Fatal error: %s", err.Error())
-        os.Exit(1)
+        fmt.Fprintf(os.Stderr, "Fatal error: %s\n", err.Error())
     }
 }
