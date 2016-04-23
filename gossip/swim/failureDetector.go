@@ -1,21 +1,16 @@
 package swim
 
 import (
-	//"github.com/otnt/ds/node"
 	ch "github.com/otnt/ds/consistentHashing"
-	//"math/rand"
 	"github.com/otnt/ds/message"
-	//"encoding/gob"
 	"encoding/json"
 	"bytes"
 	"log"
 	"github.com/otnt/ds/infra"
-	"fmt"
 )
 
 const (
 	SWIM_PING = "swim_ping"
-	//SWIM_PING_ACK = "swim_ack"
 	SWIM_FORWARD = "swim_forward"
 	SWIM_FORWARD_ACK = "swim_forward_ack"
 	SWIM_ACK = "swim_ack"
@@ -37,7 +32,6 @@ type FailureDetector struct {
 }
 
 // Get next ping host, and ping data
-//func (fd *FailureDetector) nextMessage() (string, string, string) {
 func (fd *FailureDetector) nextMessage() *message.Message {
 	fd.updateIndex()
 	fd.curr = fd.hostnames[fd.index]
@@ -46,7 +40,6 @@ func (fd *FailureDetector) nextMessage() *message.Message {
 		Src: infra.LocalNode.Hostname,
 		Info:fd.info,
 	}
-	fmt.Printf("send msg: %+v\n", fdm)
 
 	var buf bytes.Buffer
 	err := json.NewEncoder(&buf).Encode(fdm)
@@ -54,16 +47,7 @@ func (fd *FailureDetector) nextMessage() *message.Message {
 		panic(err)
 	}
 
-	var info *failureDetectorMessage
-	err = json.NewDecoder(bytes.NewBufferString(buf.String())).Decode(&info)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("test decode %+v\n", info)
-
-	//return fd.curr.Hostname, buf.String(), SWIM_PING
 	msg := &message.Message{Dest:fd.curr, Data:buf.String(), Kind:SWIM_PING}
-
 	return msg
 }
 
@@ -89,7 +73,6 @@ func (fd *FailureDetector) ackMessage(msg *message.Message) (string, string, str
 		//forward: "",
 		Info:fd.info,
 	}
-	fmt.Printf("send msg: %+v\n", fdm)
 
 	var buf bytes.Buffer
 	json.NewEncoder(&buf).Encode(fdm)
@@ -116,7 +99,6 @@ func (fd *FailureDetector) ackMessage(msg *message.Message) (string, string, str
 
 // Update node status
 func (fd *FailureDetector) update(msg *message.Message) {
-	//return 
 	var fdm failureDetectorMessage
 	err := json.NewDecoder(bytes.NewBufferString(msg.Data)).Decode(&fdm)
 	log.Printf("info is %+v\n",fdm)
