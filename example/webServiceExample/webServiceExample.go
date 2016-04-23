@@ -48,7 +48,6 @@ func main() {
 			select {
 				case newMessage := <-infra.ReceivedBuffer:  //infra.CheckIncomingMessages()
 				messageKind := message.GetKind(&newMessage)
-				fmt.Println("receive msg kind " + messageKind)
 				if messageKind == "replication" {
 					//replication.NameOfFunction(&newMessage)
 				} else if messageKind == webService.KIND_FORWARD {
@@ -71,6 +70,12 @@ func main() {
 					webService.DownVoteChan<- &newMessage
 				} else if messageKind == webService.KIND_DOWN_VOTE_ACK {
 					webService.DownVoteAckChan <- &newMessage
+				} else if messageKind == swim.SWIM_PING {
+					swimProtocol.PingChan <- &newMessage
+				} else if messageKind == swim.SWIM_FORWARD {
+					swimProtocol.ForwardChan <- &newMessage
+				} else if messageKind == swim.SWIM_ACK {
+					swimProtocol.AckChan <- &newMessage
 				}
 
 			case <-time.After(time.Millisecond * 1):

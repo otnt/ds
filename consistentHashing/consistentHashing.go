@@ -1,6 +1,7 @@
 package consistentHashing
 
 import (
+	"github.com/otnt/ds/infra"
 	"errors"
 	"fmt"
 	rbte "github.com/emirpasic/gods/examples"
@@ -39,10 +40,19 @@ func (ring *Ring) Hash(value string) string {
 }
 
 // Update status of a node
-func (ring *Ring) UpdateStatus(n *node.Node) {
+//func (ring *Ring) UpdateStatus(n *node.Node) {
+//	nn, found := ring.Get(n.Keys[0])
+//	if found {
+//		nn.Status = n.Status
+//	}
+//}
+
+// Update status of a node
+func (ring *Ring) UpdateStatus(hostname string, status interface{}) {
+	n := infra.NodeIndexMap[hostname]
 	nn, found := ring.Get(n.Keys[0])
 	if found {
-		nn.Status = n.Status
+		nn.Status = status
 	}
 }
 

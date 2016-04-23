@@ -48,5 +48,6 @@ func NewNode(hostname string, ip string, port int, vnodeNum int) (node *Node) {
 		node.Keys[i] = fmt.Sprintf("%x", h.Sum(nil))
 	}
 	node.Saved = false
+	node.Status = "healthy"
 	return
 }

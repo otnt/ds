@@ -1,114 +1,135 @@
 package swim
 
 import (
-	"github.com/otnt/ds/node"
+	//"github.com/otnt/ds/node"
 	ch "github.com/otnt/ds/consistentHashing"
-	"math/rand"
+	//"math/rand"
 	"github.com/otnt/ds/message"
-	"encoding/gob"
+	//"encoding/gob"
+	"encoding/json"
 	"bytes"
 	"log"
 	"github.com/otnt/ds/infra"
+	"fmt"
 )
 
 const (
 	SWIM_PING = "swim_ping"
-	SWIM_PING_ACK = "swim_ack"
-	SWIM_RANDOM = "swim_random"
-	SWIM_RANDOM_ACK = "swim_random_ack"
+	//SWIM_PING_ACK = "swim_ack"
+	SWIM_FORWARD = "swim_forward"
+	SWIM_FORWARD_ACK = "swim_forward_ack"
+	SWIM_ACK = "swim_ack"
 )
 
 // Send this message to other failure detector
 type failureDetectorMessage struct {
-	localNode *node.Node
-	pingNode *node.Node
-	information []*node.Node
+	Src string
+	//forward string
+	Info map[string]string
 }
 
 type FailureDetector struct {
 	index int
-	curr *node.Node
-	nodes []*node.Node
+	curr string
 	ring *ch.Ring
+	info map[string]string
+	hostnames []string
 }
 
 // Get next ping host, and ping data
-func (fd *FailureDetector) nextMessage() (string, string, string) {
-	if fd.index == len(fd.nodes) {
-		fd.refresh()
+//func (fd *FailureDetector) nextMessage() (string, string, string) {
+func (fd *FailureDetector) nextMessage() *message.Message {
+	fd.updateIndex()
+	fd.curr = fd.hostnames[fd.index]
+
+	fdm := &failureDetectorMessage{
+		Src: infra.LocalNode.Hostname,
+		Info:fd.info,
+	}
+	fmt.Printf("send msg: %+v\n", fdm)
+
+	var buf bytes.Buffer
+	err := json.NewEncoder(&buf).Encode(fdm)
+	if err != nil {
+		panic(err)
 	}
 
-	var buf bytes.Buffer
-	gob.NewEncoder(&buf).Encode(
-		failureDetectorMessage{
-			localNode:infra.LocalNode,
-			pingNode:nil,
-			information:fd.nodes,
-		},
-	)
+	var info *failureDetectorMessage
+	err = json.NewDecoder(bytes.NewBufferString(buf.String())).Decode(&info)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("test decode %+v\n", info)
 
-	fd.curr = fd.nodes[fd.index]
-	return fd.curr.Hostname, SWIM_PING, buf.String()
+	//return fd.curr.Hostname, buf.String(), SWIM_PING
+	msg := &message.Message{Dest:fd.curr, Data:buf.String(), Kind:SWIM_PING}
+
+	return msg
 }
 
-// Get random ping host, and ping data
-func (fd *FailureDetector) randomMessage() (string, string, string) {
-	randNode := fd.nodes[rand.Intn(len(fd.nodes))]
-
-	var buf bytes.Buffer
-	gob.NewEncoder(&buf).Encode(
-		failureDetectorMessage{
-			localNode:infra.LocalNode,
-			pingNode:randNode,
-			information:fd.nodes,
-		},
-	)
-
-	return randNode.Hostname, SWIM_RANDOM, buf.String()
-}
+//// Get random ping host, and ping data
+//func (fd *FailureDetector) randomMessage() (string, string, string) {
+//	randNode := fd.nodes[rand.Intn(len(fd.nodes))]
+//
+//	var buf bytes.Buffer
+//	gob.NewEncoder(&buf).Encode(
+//		failureDetectorMessage{
+//			localNode:infra.LocalNode,
+//			pingNode:randNode,
+//			information:fd.nodes,
+//		},
+//	)
+//
+//	return randNode.Hostname, buf.String(), SWIM_FORWARD
+//}
 
 func (fd *FailureDetector) ackMessage(msg *message.Message) (string, string, string) {
-	var buf bytes.Buffer
-	gob.NewEncoder(&buf).Encode(
-		failureDetectorMessage{
-			localNode:infra.LocalNode,
-			pingNode:nil,
-			information:fd.nodes,
-		},
-	)
-	return msg.Src, SWIM_PING_ACK, buf.String()
-}
-
-func (fd *FailureDetector) forwardMessage(msg *message.Message) (string, string, string) {
-	var info failureDetectorMessage
-	_= gob.NewDecoder(bytes.NewBufferString(msg.Data)).Decode(&info)
+	fdm := failureDetectorMessage{
+		Src: infra.LocalNode.Hostname,
+		//forward: "",
+		Info:fd.info,
+	}
+	fmt.Printf("send msg: %+v\n", fdm)
 
 	var buf bytes.Buffer
-	gob.NewEncoder(&buf).Encode(
-		failureDetectorMessage{
-			localNode:infra.LocalNode,
-			pingNode:nil,
-			information:fd.nodes,
-		},
-	)
-
-	return info.pingNode.Hostname, SWIM_PING, buf.String()
+	json.NewEncoder(&buf).Encode(fdm)
+	return msg.Src, buf.String(), SWIM_ACK //SWIM_PING_ACK
 }
+
+////func (fd *FailureDetector) forwardMessage(msg *message.Message) (string, string, string) {
+//func (fd *FailureDetector) forwardMessage(msg *message.Message) *message.Message {
+//	var info failureDetectorMessage
+//	_= gob.NewDecoder(bytes.NewBufferString(msg.Data)).Decode(&info)
+//
+//	var buf bytes.Buffer
+//	gob.NewEncoder(&buf).Encode(
+//		failureDetectorMessage{
+//			localNode:infra.LocalNode,
+//			pingNode:nil,
+//			information:fd.nodes,
+//		},
+//	)
+//
+//	//return info.pingNode.Hostname, buf.String(), SWIM_PING
+//	return &message.Message{Dest:info.pingNode.Hostname, Kind:SWIM_PING, Data:buf.String()}
+//}
 
 // Update node status
 func (fd *FailureDetector) update(msg *message.Message) {
-	var info failureDetectorMessage
-	err := gob.NewDecoder(bytes.NewBufferString(msg.Data)).Decode(&info)
+	//return 
+	var fdm failureDetectorMessage
+	err := json.NewDecoder(bytes.NewBufferString(msg.Data)).Decode(&fdm)
+	log.Printf("info is %+v\n",fdm)
 	if err != nil {
 		log.Printf("Error when updating %+v\n", err)
 		return
 	}
 
-	for _, n := range info.information{
-		fd.ring.UpdateStatus(n)
+	for k, v := range fdm.Info{
+		fd.ring.UpdateStatus(k, v)
 	}
 
-	fd.ring.UpdateStatus(info.localNode)
+	fd.ring.UpdateStatus(fdm.Src, HEALTHY)
 }
 
 const (
@@ -117,6 +138,10 @@ const (
 	SUSPECTED_2 = "suspected_2"
 	SUSPECTED_3 = "suspected_3"
 	FAULTY = "faulty"
+)
+
+const (
+	INIT_STATUS = HEALTHY
 )
 
 var statusFailMap = map[string]string{
@@ -128,22 +153,34 @@ var statusFailMap = map[string]string{
 
 // Current node probe failed
 func (fd *FailureDetector) fail() {
-	fd.curr.Status = statusFailMap[fd.curr.Status.(string)]
-	fd.ring.UpdateStatus(fd.curr)
-	if fd.curr.Status.(string) == FAULTY {
-		fd.ring.RemoveSync(fd.curr)
+	newStatus := statusFailMap[fd.info[fd.curr]]
+	fd.info[fd.curr] = newStatus
+	fd.ring.UpdateStatus(fd.curr, newStatus)
+
+	if newStatus == FAULTY {
+		fd.ring.RemoveSync(infra.NodeIndexMap[fd.curr])
+		log.Printf("Node %s failed, removing...\n", fd.curr)
 	}
 }
 
 // Refresh node list
-func (fd *FailureDetector) refresh() {
-	fd.nodes = fd.ring.Values()
+func (fd *FailureDetector) updateIndex() {
+	fd.index++
+	if fd.index == len(fd.hostnames) {
+		nodes := fd.ring.Values()
+		fd.hostnames = make([]string, 0)
+		fd.info = make(map[string]string)
+
+		for _, n := range nodes {
+			fd.hostnames = append(fd.hostnames, n.Hostname)
+			fd.info[n.Hostname] = n.Status.(string)
+		}
+		fd.index = 0
+	}
 }
 
-
-
 func NewFailureDetector(ring *ch.Ring) *FailureDetector {
-	fd := FailureDetector{index:0, ring:ring}
-	fd.refresh()
+	fd := FailureDetector{index:-1, ring:ring}
+	fd.updateIndex()
 	return &fd
 }
