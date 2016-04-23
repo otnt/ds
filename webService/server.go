@@ -14,7 +14,7 @@ import (
 	"labix.org/v2/mgo/bson"
 	"io/ioutil"
 	"errors"
-	//"github.com/otnt/ds/replication"
+	"github.com/otnt/ds/replication"
 )
 
 var ring *ch.Ring
@@ -119,10 +119,17 @@ func (ws *WebService) HandleComment(msg *message.Message) {
 		return
 	}
 
+	localNode := infra.GetLocalNode()
+	comment.BelongsTo = localNode.Hostname
+	comment.DbOp = replication.COMMENT
+
 	err = comment.addCommmentInDB()
 	if err != nil {
 		return
 	}
+
+	petGagPost := comment.toPetGagPost()
+	replication.AskNodesToUpdate(petGagPost)
 
 	/*
 	Replication goes here
@@ -139,6 +146,10 @@ func (ws *WebService) HandleForward(msg *message.Message) {
 	if err != nil {
 		return
 	}
+
+	localNode := infra.GetLocalNode()
+	newPost.BelongsTo = localNode.Hostname
+	newPost.DbOp = replication.INSERT
 
 	err = newPost.Write()
 	if err != nil {
@@ -161,6 +172,10 @@ func (ws *WebService) HandleUpVote(msg *message.Message) {
 		return
 	}
 
+	localNode := infra.GetLocalNode()
+	vote.BelongsTo = localNode.Hostname
+	vote.DbOp = replication.UPVOTE
+
 	err = vote.upvotePost()
 	if err != nil {
 		return
@@ -182,6 +197,10 @@ func (ws *WebService) HandleDownVote(msg *message.Message) {
 		return
 	}
 
+	localNode := infra.GetLocalNode()
+	vote.BelongsTo = localNode.Hostname
+	vote.DbOp = replication.DOWNVOTE
+
 	err = vote.downvotePost()
 	if err != nil {
 		return
@@ -190,9 +209,8 @@ func (ws *WebService) HandleDownVote(msg *message.Message) {
 	/*
 	Replication goes here
 	*/
-	//petGagPost := vote.toPetGagPost()
-	//replication.AskNodesToUpdate(petGagPost)
-
+	petGagPost := vote.toPetGagPost()
+	replication.AskNodesToUpdate(petGagPost)
 
 	infra.SendUnicast(msg.Src, "ok", KIND_DOWN_VOTE_ACK)
 	fmt.Println(vote)
