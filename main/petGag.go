@@ -5,7 +5,6 @@ import (
 	ch "github.com/otnt/ds/consistentHashing"
 	"github.com/otnt/ds/infra"
 	"github.com/otnt/ds/message"
-	"github.com/otnt/ds/mongoDbintegration"
 	"github.com/otnt/ds/msgToPetgagMsg"
 	"github.com/otnt/ds/node"
 	"github.com/otnt/ds/webService"
