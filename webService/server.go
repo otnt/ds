@@ -14,6 +14,7 @@ import (
 	"labix.org/v2/mgo/bson"
 	"io/ioutil"
 	"errors"
+	//"github.com/otnt/ds/replication"
 )
 
 var ring *ch.Ring
@@ -189,9 +190,8 @@ func (ws *WebService) HandleDownVote(msg *message.Message) {
 	/*
 	Replication goes here
 	*/
-	petGagPost := vote.toPetGagPost()
-	
-
+	//petGagPost := vote.toPetGagPost()
+	//replication.AskNodesToUpdate(petGagPost)
 
 
 	infra.SendUnicast(msg.Src, "ok", KIND_DOWN_VOTE_ACK)

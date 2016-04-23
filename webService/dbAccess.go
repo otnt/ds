@@ -45,8 +45,8 @@ type PetGagPost struct {
 	ObjID         string
 }
 
-func (vm *VoteMsg) toPetGagPost() *PetGagPost {
-	return &PetGagPost {
+func (vm *VoteMsg) toPetGagPost() PetGagPost {
+	return PetGagPost {
 		BelongsTo:vm.BelongsTo,
 		DbOp:vm.DbOp,
 		ImageURL:vm.ImageURL,
@@ -58,8 +58,8 @@ func (vm *VoteMsg) toPetGagPost() *PetGagPost {
 	}
 }
 
-func (acm *AddCommentMsg) toPetGagPost() *PetGagPost {
-	return &PetGagPost {
+func (acm *AddCommentMsg) toPetGagPost() PetGagPost {
+	return PetGagPost {
 		BelongsTo:acm.BelongsTo,
 		DbOp:acm.DbOp,
 		ImageURL:acm.ImageURL,

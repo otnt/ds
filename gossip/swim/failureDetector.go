@@ -124,7 +124,9 @@ func (fd *FailureDetector) updateStatus(hostname string, status string) {
 func (fd *FailureDetector) updateAllStatus() {
 	for _, hostname := range fd.hostnames {
 		n := infra.NodeIndexMap[hostname]
+		s := fd.info[hostname]
 		if n != nil {
+			n.Status = s
 			if n.Status != FAULTY {
 				fd.ring.AddSync(n)
 			} else {
@@ -173,6 +175,7 @@ func (fd *FailureDetector) fail() {
 func (fd *FailureDetector) updateIndex() {
 	fd.index++
 	if fd.index == len(fd.hostnames) {
+		fd.updateAllStatus()
 		nodes := fd.ring.Values()
 		fd.hostnames = make([]string, 0)
 		fd.info = make(map[string]string)

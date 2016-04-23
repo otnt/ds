@@ -37,6 +37,10 @@ func main() {
 	}
 	ws := webService.WebService{Port: port}
 	ws.Run(ring)
+
+	//init replication
+	replication.InitReplication(ring)
+
 	go messageDispatcher()
 
 	block := make(chan bool)
