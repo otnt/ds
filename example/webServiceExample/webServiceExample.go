@@ -3,7 +3,6 @@ package main
 import (
 	"github.com/otnt/ds/webService"
 	ch "github.com/otnt/ds/consistentHashing"
-	config "github.com/otnt/ds/config"
 	"github.com/otnt/ds/infra"
 	"fmt"
 	"os"
@@ -23,17 +22,12 @@ func main() {
 	localHost := os.Args[1]
 	infra.InitNetwork(localHost)
 	time.Sleep(500)
-
-
-	//init consistent hashing
-	//nodes := config.BootstrapNodes()
-	var nodes config.YamlConfig
-	nodes.ParseYaml(config.BootstrapNodesFile)
+	
 	ring := ch.NewRing()
-	for _,n:= range nodes.Servers{
-		nn := node.Node(n)
-		ring.AddSync(&nn)
-	}
+        for _, n := range infra.NodeIndexMap {
+                nn := node.Node(*n)
+                ring.AddSync(&nn)
+        }
 
 	//init web service
 	port, err := strconv.Atoi(os.Args[2])
