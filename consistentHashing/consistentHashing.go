@@ -1,7 +1,6 @@
 package consistentHashing
 
 import (
-	"github.com/otnt/ds/infra"
 	"errors"
 	"fmt"
 	rbte "github.com/emirpasic/gods/examples"
@@ -46,15 +45,6 @@ func (ring *Ring) Hash(value string) string {
 //		nn.Status = n.Status
 //	}
 //}
-
-// Update status of a node
-func (ring *Ring) UpdateStatus(hostname string, status interface{}) {
-	n := infra.NodeIndexMap[hostname]
-	nn, found := ring.Get(n.Keys[0])
-	if found {
-		nn.Status = status
-	}
-}
 
 //Add a new Node to consistent hashing ring.
 //This function block the running routine until the Node

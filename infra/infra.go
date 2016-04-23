@@ -175,7 +175,7 @@ func InitNetwork(localHost string) {
 	NodeIndexMap = map[string]*node.Node{}
 	connectionMap = map[string]*net.TCPConn{}
 	ReceivedBuffer = make(chan message.Message)
-	vnodeNum := 2
+	vnodeNum := 1
 	var yamlConfig YamlConfig
 	err := yamlConfig.ParseYaml("nodes.yml")
 	checkError(err)

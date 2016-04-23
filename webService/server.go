@@ -189,6 +189,10 @@ func (ws *WebService) HandleDownVote(msg *message.Message) {
 	/*
 	Replication goes here
 	*/
+	petGagPost := vote.toPetGagPost()
+	
+
+
 
 	infra.SendUnicast(msg.Src, "ok", KIND_DOWN_VOTE_ACK)
 	fmt.Println(vote)

@@ -12,6 +12,8 @@ import (
 
 /* struct used to insert a comment on a particular post*/
 type AddCommentMsg struct {
+	BelongsTo     string 
+	DbOp          string
 	ImageId string
 	ImageURL string
 	UName string
@@ -20,13 +22,15 @@ type AddCommentMsg struct {
 
 /* struct used to upvote/downvote  a particular post*/
 type VoteMsg struct {
+	BelongsTo     string 
+	DbOp          string
 	ImageId string
 	ImageURL string
 }
 
 type Comments struct {
-		UserCName 		string			
-		Comment         string
+	UserCName 		string			
+	Comment         string
 }
 
 type PetGagPost struct {
@@ -41,6 +45,31 @@ type PetGagPost struct {
 	ObjID         string
 }
 
+func (vm *VoteMsg) toPetGagPost() *PetGagPost {
+	return &PetGagPost {
+		BelongsTo:vm.BelongsTo,
+		DbOp:vm.DbOp,
+		ImageURL:vm.ImageURL,
+		CommentList:nil,
+		UpVote:0,
+		DownVote:0,
+		UserName:"",
+		ObjID:"",
+	}
+}
+
+func (acm *AddCommentMsg) toPetGagPost() *PetGagPost {
+	return &PetGagPost {
+		BelongsTo:acm.BelongsTo,
+		DbOp:acm.DbOp,
+		ImageURL:acm.ImageURL,
+		CommentList:[]Comments{Comments{acm.UName, acm.Comment}},
+		UpVote:0,
+		DownVote:0,
+		UserName:"",
+		ObjID:"",
+	}
+}
 
 func connect() (session *mgo.Session) {
 	connectURL := "localhost"
@@ -67,8 +96,8 @@ func getAllPostsFromDB() (allPosts []bson.M) {
 		return
 	}
 	for _, obj := range allPosts {
-   		fmt.Println(obj)
-  	}
+		fmt.Println(obj)
+	}
 
 	return allPosts
 }

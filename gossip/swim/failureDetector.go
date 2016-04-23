@@ -108,10 +108,32 @@ func (fd *FailureDetector) update(msg *message.Message) {
 	}
 
 	for k, v := range fdm.Info{
-		fd.ring.UpdateStatus(k, v)
+		fd.updateStatus(k, v)
 	}
 
-	fd.ring.UpdateStatus(fdm.Src, HEALTHY)
+	fd.updateStatus(fdm.Src, HEALTHY)
+}
+
+func (fd *FailureDetector) updateStatus(hostname string, status string) {
+	if _, found := fd.info[hostname]; !found {
+		fd.hostnames = append(fd.hostnames, hostname)
+	}
+	fd.info[hostname] = status
+}
+
+func (fd *FailureDetector) updateAllStatus() {
+	for _, hostname := range fd.hostnames {
+		n := infra.NodeIndexMap[hostname]
+		if n != nil {
+			if n.Status != FAULTY {
+				fd.ring.AddSync(n)
+			} else {
+				fd.ring.RemoveSync(n)
+			}
+		} else {
+			panic("Only support in discription file Nodes")
+		}
+	}
 }
 
 const (
@@ -131,18 +153,20 @@ var statusFailMap = map[string]string{
 	SUSPECTED_1:SUSPECTED_2,
 	SUSPECTED_2:SUSPECTED_3,
 	SUSPECTED_3:FAULTY,
+	FAULTY:FAULTY,
 }
 
 // Current node probe failed
 func (fd *FailureDetector) fail() {
 	newStatus := statusFailMap[fd.info[fd.curr]]
 	fd.info[fd.curr] = newStatus
-	fd.ring.UpdateStatus(fd.curr, newStatus)
+	//fd.updateStatus(fd.curr, newStatus)
 
-	if newStatus == FAULTY {
-		fd.ring.RemoveSync(infra.NodeIndexMap[fd.curr])
-		log.Printf("Node %s failed, removing...\n", fd.curr)
-	}
+	//log.Printf("Node %s status update: %s\n", fd.curr, newStatus)
+	//if newStatus == FAULTY {
+	//	fd.ring.RemoveSync(infra.NodeIndexMap[fd.curr])
+	//	log.Printf("Node %s failed, removing...\n", fd.curr)
+	//}
 }
 
 // Refresh node list
