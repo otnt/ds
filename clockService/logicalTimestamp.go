@@ -7,7 +7,7 @@ import (
 // Logical Clock Timestamp is essentially just an 64-bit integer.
 // For more information on Logical Clock, check logicalClock.go
 type LogicalTimestamp struct {
-	Time int64
+	time int64
 }
 
 // Compare current logical timestamp with another logical timestamp,
@@ -15,9 +15,9 @@ type LogicalTimestamp struct {
 func (lt *LogicalTimestamp) CompareTo(timestamp Timestamp) int {
 	lt2 := timestamp.(*LogicalTimestamp)
 
-	if lt.Time < lt2.Time {
+	if lt.time < lt2.time {
 		return -1
-	} else if lt.Time > lt2.Time {
+	} else if lt.time > lt2.time {
 		return 1
 	} else {
 		return 0
@@ -25,5 +25,5 @@ func (lt *LogicalTimestamp) CompareTo(timestamp Timestamp) int {
 }
 
 func (lt *LogicalTimestamp) String() string {
-	return fmt.Sprintf("%d", lt.Time)
+	return fmt.Sprintf("%d", lt.time)
 }
