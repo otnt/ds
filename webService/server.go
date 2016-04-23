@@ -123,6 +123,10 @@ func (ws *WebService) HandleComment(msg *message.Message) {
 		return
 	}
 
+	/*
+	Replication goes here
+	*/
+
 	infra.SendUnicast(msg.Src, "ok", KIND_COMMENT_ACK)
 	fmt.Println(comment)
 }
@@ -139,6 +143,10 @@ func (ws *WebService) HandleForward(msg *message.Message) {
 	if err != nil {
 		return
 	}
+
+	/*
+	Replication goes here
+	*/
 
 	infra.SendUnicast(msg.Src, "ok", KIND_FORWARD_ACK)
 	fmt.Println(newPost)
@@ -157,6 +165,10 @@ func (ws *WebService) HandleUpVote(msg *message.Message) {
 		return
 	}
 
+	/*
+	Replication goes here
+	*/
+
 	infra.SendUnicast(msg.Src, "ok", KIND_UP_VOTE_ACK)
 	fmt.Println(vote)
 }
@@ -173,6 +185,10 @@ func (ws *WebService) HandleDownVote(msg *message.Message) {
 	if err != nil {
 		return
 	}
+
+	/*
+	Replication goes here
+	*/
 
 	infra.SendUnicast(msg.Src, "ok", KIND_DOWN_VOTE_ACK)
 	fmt.Println(vote)
