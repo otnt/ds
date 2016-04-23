@@ -18,12 +18,24 @@ Post a photo. Data has format
 
 ``
 {
-  "ImageData" : base64 encoded string
+  "ImageURL" : base64 encoded string
 }
 ``
 
-``curl -H "Content-Type: application/json" -X POST -d '{"ImageData":"1912352"}' http://localhost:8081/post``
+``curl -H "Content-Type: application/json" -X POST -d '{"ImageURL":"123"}' http://localhost:8081/addPost``
 
 Fetch all photos.
 
 ``curl -X GET http://localhost:8080/fetchAllPosts``
+
+Add comment.
+
+``curl -H "Content-Type: application/json" -X POST -d '{"ImageURL":"123"}' http://localhost:8081/addComment`
+
+Add up vote.
+
+``curl -H "Content-Type: application/json" -X POST -d '{"ImageURL":"123"}' http://localhost:8081/upVote`
+
+Add down vote.
+
+``curl -H "Content-Type: application/json" -X POST -d '{"ImageURL":"123"}' http://localhost:8081/downVote`
