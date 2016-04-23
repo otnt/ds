@@ -3,7 +3,6 @@ package main
 import (
 	"github.com/otnt/ds/webService"
 	ch "github.com/otnt/ds/consistentHashing"
-	config "github.com/otnt/ds/config"
 	"github.com/otnt/ds/infra"
 	"fmt"
 	"os"
