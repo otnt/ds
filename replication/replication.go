@@ -39,6 +39,11 @@ const (
 	Downvote
 	Comment
 	Delete
+
+	INSERT = ""
+	UPVOTE = ""
+	DOWNVOTE = ""
+	COMMENT = ""
 )
 
 const replicationFactor int = 2

@@ -1,7 +1,19 @@
 servers :
-  - hostname : Alice
+  - hostname : A
     ip : 127.0.0.1
     port : 12345
-  - hostname : Bob
+  - hostname : B
     ip : 127.0.0.1
     port : 23456
+  - hostname : C
+    ip : 127.0.0.1
+    port : 34567
+  - hostname : D
+    ip : 127.0.0.1
+    port : 45678
+  - hostname : E
+    ip : 127.0.0.1
+    port : 1234
+  - hostname : F
+    ip : 127.0.0.1
+    port : 2345

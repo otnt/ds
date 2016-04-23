@@ -72,9 +72,9 @@ func (swim *SwimProtocol) runPinger() {
 				//	swim.failureDetector.fail()
 				//}
 				swim.failureDetector.fail()
-				log.Printf("ping failed %s\n", swim.failureDetector.curr)
+				log.Printf("failed %s\n", swim.failureDetector.curr)
 			} else {
-				log.Printf("ping succeed %s\n", swim.failureDetector.curr)
+				log.Printf("succeed %s\n", swim.failureDetector.curr)
 			}
 			<-intervalChan
 		}
@@ -140,7 +140,7 @@ func (swim *SwimProtocol) pingNext() bool {
 	res := make(chan *message.Message)
 	swim.taskChan <- &task{req:req, res:res}
 
-	log.Printf("%s ping %s\n", infra.LocalNode.Hostname, req.Dest)
+	//log.Printf("%s ping %s\n", infra.LocalNode.Hostname, req.Dest)
 	if rcv := <-res; rcv != nil {
 		swim.failureDetector.update(rcv)
 		return true

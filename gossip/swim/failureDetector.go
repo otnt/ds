@@ -33,9 +33,6 @@ type FailureDetector struct {
 
 // Get next ping host, and ping data
 func (fd *FailureDetector) nextMessage() *message.Message {
-	fd.updateIndex()
-	fd.curr = fd.hostnames[fd.index]
-
 	fdm := &failureDetectorMessage{
 		Src: infra.LocalNode.Hostname,
 		Info:fd.info,
@@ -45,6 +42,13 @@ func (fd *FailureDetector) nextMessage() *message.Message {
 	err := json.NewEncoder(&buf).Encode(fdm)
 	if err != nil {
 		panic(err)
+	}
+
+	fd.index = (fd.index + 1) % len(fd.hostnames)
+	fd.curr = fd.hostnames[fd.index]
+	for fd.curr == infra.LocalNode.Hostname || fd.info[fd.curr] == FAULTY {
+		fd.index = (fd.index + 1) % len(fd.hostnames)
+		fd.curr = fd.hostnames[fd.index]
 	}
 
 	msg := &message.Message{Dest:fd.curr, Data:buf.String(), Kind:SWIM_PING}
@@ -101,7 +105,7 @@ func (fd *FailureDetector) ackMessage(msg *message.Message) (string, string, str
 func (fd *FailureDetector) update(msg *message.Message) {
 	var fdm failureDetectorMessage
 	err := json.NewDecoder(bytes.NewBufferString(msg.Data)).Decode(&fdm)
-	log.Printf("info is %+v\n",fdm)
+	//log.Printf("info is %+v\n",fdm)
 	if err != nil {
 		log.Printf("Error when updating %+v\n", err)
 		return
@@ -115,27 +119,7 @@ func (fd *FailureDetector) update(msg *message.Message) {
 }
 
 func (fd *FailureDetector) updateStatus(hostname string, status string) {
-	if _, found := fd.info[hostname]; !found {
-		fd.hostnames = append(fd.hostnames, hostname)
-	}
 	fd.info[hostname] = status
-}
-
-func (fd *FailureDetector) updateAllStatus() {
-	for _, hostname := range fd.hostnames {
-		n := infra.NodeIndexMap[hostname]
-		s := fd.info[hostname]
-		if n != nil {
-			n.Status = s
-			if n.Status != FAULTY {
-				fd.ring.AddSync(n)
-			} else {
-				fd.ring.RemoveSync(n)
-			}
-		} else {
-			panic("Only support in discription file Nodes")
-		}
-	}
 }
 
 const (
@@ -162,34 +146,24 @@ var statusFailMap = map[string]string{
 func (fd *FailureDetector) fail() {
 	newStatus := statusFailMap[fd.info[fd.curr]]
 	fd.info[fd.curr] = newStatus
-	//fd.updateStatus(fd.curr, newStatus)
 
-	//log.Printf("Node %s status update: %s\n", fd.curr, newStatus)
-	//if newStatus == FAULTY {
-	//	fd.ring.RemoveSync(infra.NodeIndexMap[fd.curr])
-	//	log.Printf("Node %s failed, removing...\n", fd.curr)
-	//}
-}
-
-// Refresh node list
-func (fd *FailureDetector) updateIndex() {
-	fd.index++
-	if fd.index == len(fd.hostnames) {
-		fd.updateAllStatus()
-		nodes := fd.ring.Values()
-		fd.hostnames = make([]string, 0)
-		fd.info = make(map[string]string)
-
-		for _, n := range nodes {
-			fd.hostnames = append(fd.hostnames, n.Hostname)
-			fd.info[n.Hostname] = n.Status.(string)
-		}
-		fd.index = 0
+	if newStatus == FAULTY {
+		fd.ring.RemoveSync(infra.NodeIndexMap[fd.curr])
 	}
+	log.Printf("%s new status %s\n", fd.curr, newStatus)
 }
 
 func NewFailureDetector(ring *ch.Ring) *FailureDetector {
-	fd := FailureDetector{index:-1, ring:ring}
-	fd.updateIndex()
+	fd := FailureDetector{index:0, ring:ring, curr:infra.LocalNode.Hostname}
+	nodes := ring.Values()
+	fd.hostnames = make([]string, 0)
+	fd.info = make(map[string]string)
+
+	for _, n := range nodes {
+		fd.hostnames = append(fd.hostnames, n.Hostname)
+		fd.info[n.Hostname] = n.Status.(string)
+	}
+	fd.index = 0
+
 	return &fd
 }

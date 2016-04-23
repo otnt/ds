@@ -128,8 +128,8 @@ func (ws *WebService) HandleComment(msg *message.Message) {
 		return
 	}
 
-	petGagPost := comment.toPetGagPost()
-	replication.AskNodesToUpdate(petGagPost)
+	//petGagPost := comment.toPetGagPost()
+	//replication.AskNodesToUpdate(petGagPost)
 
 	/*
 	Replication goes here
@@ -209,8 +209,8 @@ func (ws *WebService) HandleDownVote(msg *message.Message) {
 	/*
 	Replication goes here
 	*/
-	petGagPost := vote.toPetGagPost()
-	replication.AskNodesToUpdate(petGagPost)
+	//petGagPost := vote.toPetGagPost()
+	//replication.AskNodesToUpdate(petGagPost)
 
 	infra.SendUnicast(msg.Src, "ok", KIND_DOWN_VOTE_ACK)
 	fmt.Println(vote)
