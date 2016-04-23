@@ -38,6 +38,10 @@ func main() {
 	}
 	ws := webService.WebService{Port: port}
 	ws.Run(ring)
+
+	//init replication
+	replication.InitReplication(ring)
+
 	go messageDispatcher()
 
 	block := make(chan bool)
@@ -54,13 +58,33 @@ func messageDispatcher() {
 
 			if messageKind == "forward" {
 				newPGMessage := msgToPetgagMsg.ConvertToPGMsg(&newMessage)
+
+				localNode := infra.GetLocalNode()
+				newPGMessage.PGData.BelongsTo = localNode.Hostname
+
 				replication.UpdateSelfDB(&newPGMessage, mongoSession)
 				replication.AskNodesToUpdate(&newPGMessage, mongoSession)
-				go replication.WaitForAcks()
-				replication.RespondToClient()
+
+				go func() {
+					var acksObtained int = 0
+					for {
+						acksObtained = replication.NumAcks
+						if acksObtained == replication.ReplicationFactor {
+							fmt.Println("acks obtained = ", replication.NumAcks)
+							break
+						}
+					}
+					replication.RespondToClient()
+				}()
+
 			} else if messageKind == "replication" { /* At the secondary */
+
+				localNode := infra.GetLocalNode()
+
 				newPGMessage := msgToPetgagMsg.ConvertToPGMsg(&newMessage)
-				replication.UpdateSelfDB(&newPGMessage, mongoSessions)
+				newPGMessage.PGData.BelongsTo = localNode.Hostname + " - replication"
+
+				replication.UpdateSelfDB(&newPGMessage, mongoSession)
 				replication.SendAcks(&newPGMessage)
 			} else if messageKind == "acknowledgement" { /* Acks processing at the primary */
 				replication.ProcessAcks()

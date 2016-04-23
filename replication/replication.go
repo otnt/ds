@@ -19,11 +19,11 @@ package replication
 
 import (
 	"fmt"
-	ch "github.com/pshastry/consistentHashing"
-	"github.com/pshastry/infra"
-	"github.com/pshastry/mongoDBintegration"
+	ch "github.com/otnt/ds/consistentHashing"
+	"github.com/otnt/ds/infra"
+	"github.com/otnt/ds/mongoDBintegration"
 	//"github.com/otnt/ds/node"
-	"github.com/pshastry/petGagMessage"
+	"github.com/otnt/ds/petGagMessage"
 	//"github.com/otnt/ds/petgagData"
 	"bytes"
 	"encoding/json"
@@ -41,13 +41,13 @@ const (
 	Delete
 )
 
-const replicationFactor int = 2
+const ReplicationFactor int = 2
 
-var numAcks int = 0
-var ring *ch.Ring
+var NumAcks int = 0
+var ReplRing *ch.Ring
 
 func InitReplication(r *ch.Ring) {
-	ring = r
+	ReplRing = r
 }
 
 /* func InitMongoDB() (mongoSession *mgo.Session) {
@@ -101,15 +101,15 @@ func AskNodesToUpdate(message *petGagMessage.PetGagMessage, mongoSession *mgo.Se
 
 	secNodeKeys = append(secNodeKeys, nodeKey)
 
-	for i := 1; i <= replicationFactor; i++ {
-		_, newNodeKey, err := ring.Successor(secNodeKeys[i-1])
+	for i := 1; i <= ReplicationFactor; i++ {
+		_, newNodeKey, err := ReplRing.Successor(secNodeKeys[i-1])
 		if err != nil {
 			fmt.Println("Error in obtaining successor node %s", err)
 		}
 		secNodeKeys = append(secNodeKeys, newNodeKey)
 	}
-	for i := 1; i < replicationFactor; i++ {
-		secondaryNode, err := ring.Get(secNodeKeys[i])
+	for i := 1; i < ReplicationFactor; i++ {
+		secondaryNode, err := ReplRing.Get(secNodeKeys[i])
 		if err == false {
 			fmt.Println("Error in obtaining node from key: %s\n", err)
 		}
@@ -121,26 +121,26 @@ func AskNodesToUpdate(message *petGagMessage.PetGagMessage, mongoSession *mgo.Se
 
 func GetKey(message *petGagMessage.PetGagMessage) string {
 	data := StructToString(message)
-	dataKey := ring.Hash(data)
-	_, currentKey, err := ring.LookUp(dataKey)
+	dataKey := ReplRing.Hash(data)
+	_, currentKey, err := ReplRing.LookUp(dataKey)
 	if err != nil {
 		fmt.Println("Error in obtaining key")
 	}
 	return currentKey
 }
 
-func WaitForAcks() {
+/* func WaitForAcks() {
 	var acksObtained int = 0
 	for {
-		acksObtained = numAcks
-		if acksObtained == replicationFactor {
+		acksObtained = NumAcks
+		if acksObtained == ReplicationFactor {
 			break
 		}
 	}
-}
+} */
 
 func ProcessAcks() {
-	numAcks = numAcks + 1
+	NumAcks = NumAcks + 1
 }
 
 func RespondToClient() {
