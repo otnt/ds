@@ -7,6 +7,8 @@ import (
 	"bytes"
 	"log"
 	"github.com/otnt/ds/infra"
+	"fmt"
+	"github.com/otnt/ds/replication"
 )
 
 const (
@@ -148,6 +150,10 @@ func (fd *FailureDetector) fail() {
 	fd.info[fd.curr] = newStatus
 
 	if newStatus == FAULTY {
+		fmt.Printf("node %s is failed, now replicating...\n", fd.curr)
+
+		replication.NotifyNodeDies(infra.NodeIndexMap[fd.curr].Keys[0])
+
 		fd.ring.RemoveSync(infra.NodeIndexMap[fd.curr])
 	}
 	log.Printf("%s new status %s\n", fd.curr, newStatus)
