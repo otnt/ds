@@ -1,4 +1,4 @@
-package main
+package dbAccess
 
 import (
 	"fmt"
@@ -22,6 +22,7 @@ type AddCommentMsg struct {
 /* struct used to upvote/downvote  a particular post*/
 type VoteMsg struct {
 	BelongsTo string
+	DbOp      string
 	ImageId   string
 	ImageURL  string
 }
@@ -41,7 +42,46 @@ type PetGagPost struct {
 	DownVote    int
 	UserName    string
 	ObjID       string
+}
+
+type PetGagPostDB struct {
+	BelongsTo   string
+	DbOp        string
+	ImageURL    string
+	CommentList []Comments
+	UpVote      int
+	DownVote    int
+	UserName    string
+	ObjID       string
 	ImgID       bson.ObjectId `bson:"_id"`
+}
+
+func (vm *VoteMsg) ToPetGagPost() PetGagPost {
+	return PetGagPost{
+		BelongsTo:   vm.BelongsTo,
+		DbOp:        vm.DbOp,
+		ImageURL:    vm.ImageURL,
+		CommentList: nil,
+		UpVote:      0,
+		DownVote:    0,
+		UserName:    "",
+		ObjID:       vm.ImageId,
+		//ImgID:       bson.ObjectId(vm.ImageId),
+	}
+}
+
+func (acm *AddCommentMsg) ToPetGagPost() PetGagPost {
+	return PetGagPost{
+		BelongsTo:   acm.BelongsTo,
+		DbOp:        acm.DbOp,
+		ImageURL:    acm.ImageURL,
+		CommentList: []Comments{Comments{acm.UName, acm.Comment}},
+		UpVote:      0,
+		DownVote:    0,
+		UserName:    "",
+		ObjID:       acm.ImageId,
+		//ImgID:       bson.ObjectId(acm.ImageId),
+	}
 }
 
 func connect() (session *mgo.Session) {
@@ -57,7 +97,7 @@ func connect() (session *mgo.Session) {
 	return session
 }
 
-func getAllPostsFromDB(collection_name string) (allPosts []bson.M) {
+func GetAllPostsFromDB(collection_name string) (allPosts []bson.M) {
 	session := connect()
 	defer session.Close()
 
@@ -75,11 +115,11 @@ func getAllPostsFromDB(collection_name string) (allPosts []bson.M) {
 	return allPosts
 }
 
-func getAllPostsFromAllCollections() (allPosts []bson.M) {
+func GetAllPostsFromAllCollections() (allPosts []bson.M) {
 	session := connect()
 	defer session.Close()
 
-	db := mongoSession.DB("PetGagDatabase")
+	db := session.DB("PetGagDatabase")
 	collection_names, err := mgoplus.GetCollectionNames(db)
 
 	if err != nil {
@@ -89,7 +129,7 @@ func getAllPostsFromAllCollections() (allPosts []bson.M) {
 	var result bson.M
 
 	for _, each := range collection_names {
-		collection := mongoSession.DB("PetGagDatabase").C(each)
+		collection := session.DB("PetGagDatabase").C(each)
 		iter := collection.Find(nil).Iter()
 		for iter.Next(&result) {
 			allPosts = append(allPosts, result)
@@ -98,7 +138,7 @@ func getAllPostsFromAllCollections() (allPosts []bson.M) {
 	return allPosts
 }
 
-func (msg *AddCommentMsg) addCommmentInDB() (err error) {
+func (msg *AddCommentMsg) AddCommmentInDB() (err error) {
 	session := connect()
 	defer session.Close()
 
@@ -120,7 +160,7 @@ func (msg *AddCommentMsg) addCommmentInDB() (err error) {
 
 }
 
-func (msg *VoteMsg) downvotePost() (err error) {
+func (msg *VoteMsg) DownvotePost() (err error) {
 	session := connect()
 	defer session.Close()
 
@@ -131,7 +171,7 @@ func (msg *VoteMsg) downvotePost() (err error) {
 	id := bson.ObjectIdHex(msg.ImageId)
 
 	doc := collection.FindId(id)
-	change := mgo.Change{Update: bson.M{"$inc": bson.M{"downvote": 1} /*, "$push": bson.M{"SharedImage.$.UpVotedUsers.$.UserName": user_name}*/}, ReturnNew: true}
+	change := mgo.Change{Update: bson.M{"$inc": bson.M{"downvote": 1}}, ReturnNew: true}
 	_, err = doc.Apply(change, &doc)
 
 	if err != nil {
@@ -141,18 +181,20 @@ func (msg *VoteMsg) downvotePost() (err error) {
 	return err
 }
 
-func (msg *VoteMsg) upvotePost() (err error) {
+func (msg *VoteMsg) UpvotePost() (err error) {
 	session := connect()
 	defer session.Close()
 
 	collection_name := msg.BelongsTo
 	collection := session.DB("PetGagDatabase").C(collection_name)
 
+	fmt.Println("Searching in collection: ", collection_name)
+
 	id := bson.ObjectIdHex(msg.ImageId)
 	fmt.Println(id)
 
 	doc := collection.FindId(id)
-	change := mgo.Change{Update: bson.M{"$inc": bson.M{"upvote": 1} /*, "$push": bson.M{"SharedImage.$.UpVotedUsers.$.UserName": user_name}*/}, ReturnNew: true}
+	change := mgo.Change{Update: bson.M{"$inc": bson.M{"upvote": 1}}, ReturnNew: true}
 	_, err = doc.Apply(change, &doc)
 
 	if err != nil {
@@ -170,6 +212,10 @@ func (post *PetGagPost) Write() (uid string, err error) { /* Returns objectID in
 	collection_name := post.BelongsTo
 	collection := session.DB("PetGagDatabase").C(collection_name)
 
+	var i bson.ObjectId
+
+	fmt.Println("Inserting data into the collection", collection_name)
+
 	if post.ObjID == "nil" {
 		i = bson.NewObjectId()
 	} else {
@@ -181,9 +227,10 @@ func (post *PetGagPost) Write() (uid string, err error) { /* Returns objectID in
 		}
 	}
 
-	err := collection.Insert(&PetGagPost{ImageID: i, ImageURL: post.ImageURL, UserName: post.UserName, UpVote: 0, DownVote: 0})
+	err = collection.Insert(&PetGagPostDB{ImgID: i, ImageURL: post.ImageURL, UserName: post.UserName, UpVote: 0, DownVote: 0})
 	if err != nil {
 		log.Fatal(err)
 	}
-	return i, err
+	fmt.Println("Inserted Object into the Database with ObjId", i.Hex())
+	return i.Hex(), err
 }

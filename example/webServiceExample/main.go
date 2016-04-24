@@ -1,16 +1,18 @@
 package main
 
 import (
-	"github.com/otnt/ds/webService"
+	"fmt"
 	ch "github.com/otnt/ds/consistentHashing"
 	"github.com/otnt/ds/infra"
-	"fmt"
-	"os"
+	"github.com/otnt/ds/message"
 	"github.com/otnt/ds/node"
-	"time"
+	"github.com/otnt/ds/replication"
+	"github.com/otnt/ds/webService"
+	"os"
 	"strconv"
 	"github.com/otnt/ds/message"
 	"github.com/otnt/ds/gossip/swim"
+	"time"
 )
 
 func main() {
@@ -22,19 +24,19 @@ func main() {
 	localHost := os.Args[1]
 	infra.InitNetwork(localHost)
 	time.Sleep(500)
-	
+
 	ring := ch.NewRing()
-        for _, n := range infra.NodeIndexMap {
-                nn := node.Node(*n)
-                ring.AddSync(&nn)
-        }
+	for _, n := range infra.NodeIndexMap {
+		nn := node.Node(*n)
+		ring.AddSync(&nn)
+	}
 
 	//init web service
 	port, err := strconv.Atoi(os.Args[2])
 	if err != nil {
 		panic(err)
 	}
-	ws:= webService.WebService{Port: port}
+	ws := webService.WebService{Port: port}
 	ws.Run(ring)
 
 	//init gossip protocol
@@ -42,14 +44,21 @@ func main() {
 	swimProtocol := swim.NewSwimProtocol(failureDetector)
 	swimProtocol.Run()
 
+	//init replication
+	replication.InitReplication(ring)
+
 	//incoming message dispatcher
 	go func() {
 		for {
 			select {
-				case newMessage := <-infra.ReceivedBuffer:  //infra.CheckIncomingMessages()
+			case newMessage := <-infra.ReceivedBuffer: //infra.CheckIncomingMessages()
 				messageKind := message.GetKind(&newMessage)
-				if messageKind == "replication" {
-					//replication.NameOfFunction(&newMessage)
+				fmt.Println("receive msg kind " + messageKind)
+				if messageKind == replication.KIND_REPLICATION { /* Replication */
+					fmt.Println("Received message to replicate")
+					replication.ReplChan <- &newMessage
+				} else if messageKind == replication.KIND_REPLICN_ACK { /* Replication */
+					replication.AckChan <- &newMessage
 				} else if messageKind == webService.KIND_FORWARD {
 					webService.ForwardChan <- &newMessage
 				} else if messageKind == webService.KIND_FETCH {
@@ -62,12 +71,12 @@ func main() {
 					webService.CommentChan <- &newMessage
 				} else if messageKind == webService.KIND_COMMENT_ACK {
 					webService.CommentAckChan <- &newMessage
-				} else if messageKind == webService.KIND_UP_VOTE{
-					webService.UpVoteChan<- &newMessage
+				} else if messageKind == webService.KIND_UP_VOTE {
+					webService.UpVoteChan <- &newMessage
 				} else if messageKind == webService.KIND_UP_VOTE_ACK {
 					webService.UpVoteAckChan <- &newMessage
-				} else if messageKind == webService.KIND_DOWN_VOTE{
-					webService.DownVoteChan<- &newMessage
+				} else if messageKind == webService.KIND_DOWN_VOTE {
+					webService.DownVoteChan <- &newMessage
 				} else if messageKind == webService.KIND_DOWN_VOTE_ACK {
 					webService.DownVoteAckChan <- &newMessage
 				} else if messageKind == swim.SWIM_PING {

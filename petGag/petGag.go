@@ -1,4 +1,4 @@
-package main
+/* package main
 
 import (
 	"fmt"
@@ -59,13 +59,13 @@ func messageDispatcher() {
 			replication.AskNodesToUpdate(&newPGMessage, mongoSession)
 			go replication.WaitForAcks()
 			replication.RespondToClient()
-			/* At the secondary */
-		} else if messageKind == "replication" { 
+			// At the secondary
+		} else if messageKind == "replication" {
 			newPGMessage := msgToPetgagMsg.ConvertToPGMsg(&newMessage)
 			replication.UpdateSelfDB(&newPGMessage, mongoSessions)
 			replication.SendAcks(&newPGMessage)
-			/* Acks processing at the primary */
-		} else if messageKind == "acknowledgement" { 
+			// Acks processing at the primary
+		} else if messageKind == "acknowledgement" {
 			replication.ProcessAcks()
 		} else if messageKind == webService.KIND_FORWARD {
 			webService.ForwardChan <- &newMessage
@@ -89,4 +89,4 @@ func messageDispatcher() {
 			webService.DownVoteAckChan <- &newMessage
 		}
 	}
-}
+}*/

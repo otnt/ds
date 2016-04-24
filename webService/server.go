@@ -1,34 +1,35 @@
 package webService
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"github.com/gorilla/mux"
 	ch "github.com/otnt/ds/consistentHashing"
+	db "github.com/otnt/ds/dbAccess"
 	infra "github.com/otnt/ds/infra"
-	"net/http"
-	"fmt"
-	"time"
-	"bytes"
 	"github.com/otnt/ds/message"
 	"github.com/otnt/ds/node"
-	"labix.org/v2/mgo/bson"
-	"io/ioutil"
-	"errors"
 	"github.com/otnt/ds/replication"
+	"io/ioutil"
+	"labix.org/v2/mgo/bson"
+	"net/http"
+	"time"
 )
 
 var ring *ch.Ring
 
 const (
-	KIND_FORWARD = "ws_forward"
-	KIND_FETCH = "ws_fetch"
-	KIND_FORWARD_ACK = "ws_forward_ack"
-	KIND_FETCH_ACK = "ws_fetch_ack"
-	KIND_COMMENT = "ws_comment"
-	KIND_COMMENT_ACK = "ws_comment_ack"
-	KIND_UP_VOTE = "ws_up_vote"
-	KIND_UP_VOTE_ACK = "ws_up_vote_ack"
-	KIND_DOWN_VOTE = "ws_down_vote"
+	KIND_FORWARD       = "ws_forward"
+	KIND_FETCH         = "ws_fetch"
+	KIND_FORWARD_ACK   = "ws_forward_ack"
+	KIND_FETCH_ACK     = "ws_fetch_ack"
+	KIND_COMMENT       = "ws_comment"
+	KIND_COMMENT_ACK   = "ws_comment_ack"
+	KIND_UP_VOTE       = "ws_up_vote"
+	KIND_UP_VOTE_ACK   = "ws_up_vote_ack"
+	KIND_DOWN_VOTE     = "ws_down_vote"
 	KIND_DOWN_VOTE_ACK = "ws_down_vote_ack"
 )
 
@@ -36,10 +37,10 @@ const (
 	TIME_OUT = time.Millisecond * 3000
 )
 
-var	ForwardChan chan *message.Message
-var	FetchChan chan *message.Message
-var	ForwardAckChan chan *message.Message
-var	FetchAckChan chan *message.Message
+var ForwardChan chan *message.Message
+var FetchChan chan *message.Message
+var ForwardAckChan chan *message.Message
+var FetchAckChan chan *message.Message
 var CommentChan chan *message.Message
 var CommentAckChan chan *message.Message
 var UpVoteChan chan *message.Message
@@ -48,15 +49,15 @@ var DownVoteChan chan *message.Message
 var DownVoteAckChan chan *message.Message
 
 type WebService struct {
-	Port int
+	Port   int
 	router *mux.Router
 }
 
 func (ws *WebService) Run(r *ch.Ring) {
 	ForwardChan = make(chan *message.Message)
-	FetchChan= make(chan *message.Message)
-	ForwardAckChan= make(chan *message.Message)
-	FetchAckChan= make(chan *message.Message)
+	FetchChan = make(chan *message.Message)
+	ForwardAckChan = make(chan *message.Message)
+	FetchAckChan = make(chan *message.Message)
 	CommentChan = make(chan *message.Message)
 	CommentAckChan = make(chan *message.Message)
 	UpVoteChan = make(chan *message.Message)
@@ -113,7 +114,7 @@ func (ws *WebService) initListener() {
 func (ws *WebService) HandleComment(msg *message.Message) {
 	fmt.Println("Handle comment from " + msg.Src)
 
-	comment := &AddCommentMsg{}
+	comment := &db.AddCommentMsg{}
 	err := json.Unmarshal([]byte(msg.Data), &comment)
 	if err != nil {
 		return
@@ -123,25 +124,38 @@ func (ws *WebService) HandleComment(msg *message.Message) {
 	comment.BelongsTo = localNode.Hostname
 	comment.DbOp = replication.COMMENT
 
-	err = comment.addCommmentInDB()
+	err = comment.AddCommmentInDB()
 	if err != nil {
 		return
 	}
 
-	//petGagPost := comment.toPetGagPost()
-	//replication.AskNodesToUpdate(petGagPost)
+	petGagPost := comment.ToPetGagPost()
 
-	/*
-	Replication goes here
-	*/
+	fmt.Println("Requesting nodes to update ")
+	replication.AskNodesToUpdate(petGagPost)
 
-	infra.SendUnicast(msg.Src, "ok", KIND_COMMENT_ACK)
+	go func() {
+		var acksObtained int = 0
+		fmt.Println("Waiting For Acks")
+		for {
+			acksObtained = replication.NumAcks
+			//fmt.Println("Acks Obtained = ", NumAcks)
+			if acksObtained == replication.ReplicationFactor {
+				fmt.Println("acks obtained = ", replication.NumAcks)
+				break
+			}
+		}
+		//RespondToClient()
+		infra.SendUnicast(msg.Src, "ok-replication completed", KIND_COMMENT_ACK)
+	}()
+
+	//infra.SendUnicast(msg.Src, "ok", KIND_COMMENT_ACK)
 	fmt.Println(comment)
 }
 
 func (ws *WebService) HandleForward(msg *message.Message) {
 	fmt.Println("Handle forward message from " + msg.Src)
-	newPost := &PetGagPost{}
+	newPost := &db.PetGagPost{}
 	err := json.Unmarshal([]byte(msg.Data), &newPost)
 	if err != nil {
 		return
@@ -150,23 +164,40 @@ func (ws *WebService) HandleForward(msg *message.Message) {
 	localNode := infra.GetLocalNode()
 	newPost.BelongsTo = localNode.Hostname
 	newPost.DbOp = replication.INSERT
+	newPost.ObjID = "nil"
+	fmt.Println("I am the primary", newPost.BelongsTo)
 
-	err = newPost.Write()
+	objID, err := newPost.Write()
 	if err != nil {
 		return
 	}
 
-	/*
-	Replication goes here
-	*/
+	newPost.ObjID = objID
+	fmt.Println("Asking nodes to update", newPost)
+	replication.AskNodesToUpdate(*newPost)
 
-	infra.SendUnicast(msg.Src, "ok", KIND_FORWARD_ACK)
+	go func() {
+		var acksObtained int = 0
+		fmt.Println("Waiting For Acks")
+		for {
+			acksObtained = replication.NumAcks
+			//fmt.Println("Acks Obtained = ", NumAcks)
+			if acksObtained == replication.ReplicationFactor {
+				fmt.Println("acks obtained = ", replication.NumAcks)
+				break
+			}
+		}
+		//RespondToClient()
+		infra.SendUnicast(msg.Src, "ok-replication completed", KIND_FORWARD_ACK)
+	}()
+
+	//infra.SendUnicast(msg.Src, "ok", KIND_FORWARD_ACK)
 	fmt.Println(newPost)
 }
 
 func (ws *WebService) HandleUpVote(msg *message.Message) {
 	fmt.Println("Handle upvote from " + msg.Src)
-	vote := &VoteMsg{}
+	vote := &db.VoteMsg{}
 	err := json.Unmarshal([]byte(msg.Data), &vote)
 	if err != nil {
 		return
@@ -176,22 +207,34 @@ func (ws *WebService) HandleUpVote(msg *message.Message) {
 	vote.BelongsTo = localNode.Hostname
 	vote.DbOp = replication.UPVOTE
 
-	err = vote.upvotePost()
+	err = vote.UpvotePost()
 	if err != nil {
 		return
 	}
 
-	/*
-	Replication goes here
-	*/
+	petGagPost := vote.ToPetGagPost()
+	replication.AskNodesToUpdate(petGagPost)
 
-	infra.SendUnicast(msg.Src, "ok", KIND_UP_VOTE_ACK)
+	go func() {
+		var acksObtained int = 0
+		fmt.Println("Waiting For Acks")
+		for {
+			acksObtained = replication.NumAcks
+			//fmt.Println("Acks Obtained = ", NumAcks)
+			if acksObtained == replication.ReplicationFactor {
+				fmt.Println("acks obtained = ", replication.NumAcks)
+				break
+			}
+		}
+		//RespondToClient()
+		infra.SendUnicast(msg.Src, "ok-replication completed", KIND_UP_VOTE_ACK)
+	}()
 	fmt.Println(vote)
 }
 
 func (ws *WebService) HandleDownVote(msg *message.Message) {
 	fmt.Println("Handle downvote from " + msg.Src)
-	vote := &VoteMsg{}
+	vote := &db.VoteMsg{}
 	err := json.Unmarshal([]byte(msg.Data), &vote)
 	if err != nil {
 		return
@@ -201,18 +244,30 @@ func (ws *WebService) HandleDownVote(msg *message.Message) {
 	vote.BelongsTo = localNode.Hostname
 	vote.DbOp = replication.DOWNVOTE
 
-	err = vote.downvotePost()
+	err = vote.DownvotePost()
 	if err != nil {
 		return
 	}
 
-	/*
-	Replication goes here
-	*/
-	//petGagPost := vote.toPetGagPost()
-	//replication.AskNodesToUpdate(petGagPost)
+	petGagPost := vote.ToPetGagPost()
+	replication.AskNodesToUpdate(petGagPost)
 
-	infra.SendUnicast(msg.Src, "ok", KIND_DOWN_VOTE_ACK)
+	go func() {
+		var acksObtained int = 0
+		fmt.Println("Waiting For Acks")
+		for {
+			acksObtained = replication.NumAcks
+			//fmt.Println("Acks Obtained = ", NumAcks)
+			if acksObtained == replication.ReplicationFactor {
+				fmt.Println("acks obtained = ", replication.NumAcks)
+				break
+			}
+		}
+		//RespondToClient()
+		infra.SendUnicast(msg.Src, "ok-replication completed", KIND_DOWN_VOTE_ACK)
+	}()
+
+	//infra.SendUnicast(msg.Src, "ok", KIND_DOWN_VOTE_ACK)
 	fmt.Println(vote)
 }
 
@@ -220,10 +275,14 @@ func (ws *WebService) HandleDownVote(msg *message.Message) {
 func (ws *WebService) HandleFetch(msg *message.Message) {
 	fmt.Println("Do fetching")
 
-	posts := getAllPostsFromDB()
+	localnode := infra.GetLocalNode()
+	collection_name := localnode.Hostname
+
+	posts := db.GetAllPostsFromDB(collection_name)
 	var buf bytes.Buffer
+	fmt.Println("Inside Handle Fetch", posts)
 	json.NewEncoder(&buf).Encode(posts)
-	infra.SendUnicast(msg.Src, buf.String(),KIND_FETCH_ACK)
+	infra.SendUnicast(msg.Src, buf.String(), KIND_FETCH_ACK)
 }
 
 // Fetch all posts in reverse chronological order
@@ -266,7 +325,6 @@ func (np *newPost) String() string {
 	return fmt.Sprintf("%s", np.ImageData)
 }
 
-
 // Create a new post.
 // It forwards the request to primary node of the coming post.
 func createNewPost(w http.ResponseWriter, r *http.Request) {
@@ -274,7 +332,7 @@ func createNewPost(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 
 	if err == nil {
-		newPost := &PetGagPost{}
+		newPost := &db.PetGagPost{}
 		err = json.Unmarshal(body, &newPost)
 
 		if err == nil {
@@ -284,7 +342,7 @@ func createNewPost(w http.ResponseWriter, r *http.Request) {
 				badRequest(w, errors.New("Missing ImageURL"))
 				return
 			}
-			primary, _:= primaryNode(id)
+			primary, _ := primaryNode(id)
 			infra.SendUnicast(primary.Hostname, string(body), KIND_FORWARD)
 			ok := waitFor(ForwardAckChan, TIME_OUT)
 
@@ -306,7 +364,7 @@ func addComment(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 
 	if err == nil {
-		msg := &AddCommentMsg{}
+		msg := &db.AddCommentMsg{}
 		err = json.Unmarshal(body, &msg)
 
 		if err == nil {
@@ -316,9 +374,9 @@ func addComment(w http.ResponseWriter, r *http.Request) {
 				badRequest(w, errors.New("Missing ImageURL"))
 				return
 			}
-			primary, _:= primaryNode(id)
+			primary, _ := primaryNode(id)
 			fmt.Println(primary.Hostname, KIND_COMMENT)
-			infra.SendUnicast(primary.Hostname, string(body),KIND_COMMENT)
+			infra.SendUnicast(primary.Hostname, string(body), KIND_COMMENT)
 			ok := waitFor(CommentAckChan, TIME_OUT)
 
 			if ok {
@@ -339,7 +397,7 @@ func upVote(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 
 	if err == nil {
-		vote := &VoteMsg{}
+		vote := &db.VoteMsg{}
 		err = json.Unmarshal(body, &vote)
 
 		if err == nil {
@@ -349,8 +407,11 @@ func upVote(w http.ResponseWriter, r *http.Request) {
 				badRequest(w, errors.New("Missing ImageURL"))
 				return
 			}
-			primary, _:= primaryNode(id)
-			infra.SendUnicast(primary.Hostname, string(body),KIND_UP_VOTE)
+			primary, _ := primaryNode(id)
+			infra.SendUnicast(primary.Hostname, string(body), KIND_UP_VOTE)
+
+			fmt.Println("Forwarded request to primary", primary.Hostname)
+
 			ok := waitFor(UpVoteAckChan, TIME_OUT)
 
 			if ok {
@@ -371,7 +432,7 @@ func downVote(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 
 	if err == nil {
-		vote := &VoteMsg{}
+		vote := &db.VoteMsg{}
 		err = json.Unmarshal(body, &vote)
 
 		if err == nil {
@@ -381,7 +442,7 @@ func downVote(w http.ResponseWriter, r *http.Request) {
 				badRequest(w, errors.New("Missing ImageURL"))
 				return
 			}
-			primary, _:= primaryNode(id)
+			primary, _ := primaryNode(id)
 			infra.SendUnicast(primary.Hostname, string(body), KIND_DOWN_VOTE)
 			ok := waitFor(DownVoteAckChan, TIME_OUT)
 
