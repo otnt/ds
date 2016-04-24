@@ -7,6 +7,7 @@ import (
 	"labix.org/v2/mgo/bson"
 	"log"
 	"os"
+	//"reflect"
 )
 
 /* struct used to insert a comment on a particular post*/
@@ -233,4 +234,18 @@ func (post *PetGagPost) Write() (uid string, err error) { /* Returns objectID in
 	}
 	fmt.Println("Inserted Object into the Database with ObjId", i.Hex())
 	return i.Hex(), err
+}
+
+func TransferToDb(collection_name string, post bson.M) (err error) {
+	session := connect()
+	defer session.Close()
+
+	collection := session.DB("PetGagDatabase").C(collection_name)
+
+	err = collection.Insert(&post)
+	fmt.Println("Inserted the post", post)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return err
 }
