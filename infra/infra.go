@@ -7,6 +7,7 @@ import (
 	"net"
 	"strings"
 	"time"
+	"github.com/otnt/ds/clockService"
 	"github.com/otnt/ds/node"
 	"github.com/otnt/ds/message"
 	"gopkg.in/yaml.v2"
@@ -32,6 +33,9 @@ var connectionMap map[string]*net.TCPConn
 /* Node for the local host */
 var LocalNode *node.Node
 
+/* Logical clock for infra */
+var NodeLogicalClock clockService.LogicalClock
+
 var ReceivedBuffer chan message.Message
 
 func listenerThread(conn *net.TCPConn) {
@@ -50,6 +54,11 @@ func listenerThread(conn *net.TCPConn) {
 			var rcvMessage message.Message
 			err := message.Unmarshal(readFromSocket[:read_len], &rcvMessage)
 			checkError(err)
+	
+			/* Update the timestamp according to received message */
+			NodeLogicalClock.UpdateTimestamp(&clockService.LogicalTimestamp{rcvMessage.Timestamp})
+			
+			/* Add message to ReceivedBuffer */
 			go func() { ReceivedBuffer <- rcvMessage }()
 		}
 		/* Clear message for next read */
@@ -59,12 +68,22 @@ func listenerThread(conn *net.TCPConn) {
 }
 
 func SendUnicast(dest string, data string, kind string) {
-	
-	sendMessage := message.NewMessage(LocalNode.Hostname, dest, data, kind)
+
+	/* Request a new timestamp for the outgoing message */
+	NodeLogicalClock.NewTimestamp()
+
+	/* Create a new Message with local timestamp and hostname and other parameters from argument list */
+	sendMessage := message.NewMessage(NodeLogicalClock.GetCurrentTimestamp(), LocalNode.Hostname, dest, data, kind)
+
 	if dest == LocalNode.Hostname {
-		go func() { ReceivedBuffer <- sendMessage }()
+		/* Destination is local node, just put message in ReceivedBuffer without going to network */
+		go func() {
+			ReceivedBuffer <- sendMessage
+			NodeLogicalClock.NewTimestamp()
+		}()
 		return
 	}
+
 	conn, ok := connectionMap[dest]
 	if ok {
 		_, err := conn.Write(message.Marshal(&sendMessage))
@@ -172,6 +191,7 @@ func acceptConnectionsFromOtherServers(pYamlConfig *YamlConfig) {
 }
 
 func InitNetwork(localHost string) {
+	NodeLogicalClock = clockService.NewLogicalClock()
 	NodeIndexMap = map[string]*node.Node{}
 	connectionMap = map[string]*net.TCPConn{}
 	ReceivedBuffer = make(chan message.Message)

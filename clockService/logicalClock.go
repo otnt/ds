@@ -47,16 +47,20 @@ func NewLogicalClock() LogicalClock {
 	return LogicalClock{0}
 }
 
-// Get a new timestamp from logical clock.
+// Get a new timestamp from logical clock and return NEW timestamp
 func (lc *LogicalClock) NewTimestamp() (ts Timestamp) {
-	ts = &LogicalTimestamp{lc.currentTimestamp}
 	lc.currentTimestamp++
+	ts = &LogicalTimestamp{lc.currentTimestamp}
 	return
 }
 
 // Update local time using timestamp in receiving message from other nodes.
 func (lc *LogicalClock) UpdateTimestamp(timestamp Timestamp) {
 	lt := timestamp.(*LogicalTimestamp)
-	lc.currentTimestamp = utils.MaxInt64(lc.currentTimestamp, lt.time)
+	lc.currentTimestamp = utils.MaxInt64(lc.currentTimestamp, lt.Time)
 	lc.currentTimestamp++
+}
+
+func (lc *LogicalClock) GetCurrentTimestamp() int64 {
+	return lc.currentTimestamp
 }
