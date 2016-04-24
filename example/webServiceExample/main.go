@@ -52,7 +52,7 @@ func main() {
 			select {
 			case newMessage := <-infra.ReceivedBuffer: //infra.CheckIncomingMessages()
 				messageKind := message.GetKind(&newMessage)
-				fmt.Println("receive msg kind " + messageKind)
+				//fmt.Println("receive msg kind " + messageKind)
 				if messageKind == replication.KIND_REPLICATION { /* Replication */
 					fmt.Println("Received message to replicate")
 					replication.ReplChan <- &newMessage

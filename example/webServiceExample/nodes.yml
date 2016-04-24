@@ -5,3 +5,6 @@ servers :
   - hostname : B
     ip : 127.0.0.1
     port : 23456
+  - hostname : C
+    ip : 127.0.0.1
+    port : 34567

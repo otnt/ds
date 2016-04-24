@@ -49,7 +49,7 @@ func listenerThread(conn *net.TCPConn) {
 		} else {
 			var rcvMessage message.Message
 			err := message.Unmarshal(readFromSocket[:read_len], &rcvMessage)
-			fmt.Println("Message in Infra:", read_len, string(readFromSocket[:read_len]))
+			//fmt.Println("Message in Infra:", read_len, string(readFromSocket[:read_len]))
 			checkError(err)
 			go func() { ReceivedBuffer <- rcvMessage }()
 		}
