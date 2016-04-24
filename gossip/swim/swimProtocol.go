@@ -10,8 +10,8 @@ import (
 
 // Default configuration parameters
 const (
-	WAIT_TIME_DEFAULT     = 1000
-	PING_INTERVAL_DEFAULT = 2000
+	WAIT_TIME_DEFAULT     = 400
+	PING_INTERVAL_DEFAULT = 1000
 	RAMDOM_PING_NUM = 3
 	TASK_QUEUE_SIZE = 10
 )
@@ -25,14 +25,10 @@ type SwimProtocol struct {
 	// failure detector
 	failureDetector *FailureDetector
 
-	//PingChan chan *message.Message
-	//PingAckChan chan *message.Message
-	//ForwardChan chan *message.Message
-	//ForwardAckChan chan *message.Message
-
 	PingChan chan *message.Message
 	AckChan chan *message.Message
 	ForwardChan chan *message.Message
+	ForwardAckChan chan *message.Message
 
 	taskChan chan *task
 }
@@ -126,16 +122,6 @@ func (swim *SwimProtocol) runPingResponse() {
 
 // Ping next node, return true if ping succeed, false if fail
 func (swim *SwimProtocol) pingNext() bool {
-	//infra.SendUnicast(swim.failureDetector.nextMessage())
-
-	//select {
-	//case rcvMsg := <-swim.PingAckChan:
-	//	swim.failureDetector.update(rcvMsg)
-	//	return true
-	//case <-time.After(time.Millisecond * WAIT_TIME_DEFAULT):
-	//	return false
-	//}
-
 	req := swim.failureDetector.nextMessage()
 	res := make(chan *message.Message)
 	swim.taskChan <- &task{req:req, res:res}
