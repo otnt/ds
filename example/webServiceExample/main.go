@@ -10,7 +10,6 @@ import (
 	"github.com/otnt/ds/webService"
 	"os"
 	"strconv"
-	"github.com/otnt/ds/message"
 	"github.com/otnt/ds/gossip/swim"
 	"time"
 )
