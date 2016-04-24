@@ -78,8 +78,6 @@ func initListener() {
 	}()
 }
 
-/* Receives the dbAccess.PetGagPost */
-/* Modifies the dbAccess.PetGagPost to a message to send it to secondary nodes */
 func AskNodesToUpdate(post db.PetGagPost) {
 
 	NumAcks = 0
@@ -113,21 +111,6 @@ func AskNodesToUpdate(post db.PetGagPost) {
 		infra.SendUnicast(secondaryNode.Hostname, data, KIND_REPLICATION)
 		fmt.Println("Successfully sent to secondary nodes")
 	}
-
-	// Wait For Acknowledgements - Include time out option
-	/*go func() {
-		var acksObtained int = 0
-		fmt.Println("Waiting For Acks")
-		for {
-			acksObtained = NumAcks
-			//fmt.Println("Acks Obtained = ", NumAcks)
-			if acksObtained == ReplicationFactor {
-				fmt.Println("acks obtained = ", NumAcks)
-				break
-			}
-		}
-		RespondToClient()
-	}()*/
 
 }
 
@@ -290,10 +273,25 @@ func MergeCollections(diedKey string) {
 	}
 }
 
+func SendColln(collection_name string, destNode *node.Node) {
+	posts := db.GetAllPostsFromDB(collection_name)
+	var buf bytes.Buffer
+	json.NewEncoder(&buf).Encode(posts)
+
+	fmt.Println("Posts obtained are: ", posts)
+	fmt.Println("Data encoded is: ", buf.String())
+	/* Kind is assigned KIND_TRANSFER because this data should not be re-replicated */
+	infra.SendUnicast(destNode.Hostname, buf.String(), KIND_TRANSFER)
+}
+
 func NotifyNodeDies(diedKey string) {
 	s := AmISuccessor(diedKey)
 	if s {
 		MergeCollections(diedKey)
+		diedNode, _ := ReplRing.Get(diedKey)
+		localNode := infra.GetLocalNode()
+		succNode, _, _ := ReplRing.Successor(localNode.Keys[0])
+		SendColln(diedNode.Hostname+"-replication", succNode)
 	}
 
 	p := AmIPredecessor(diedKey)
