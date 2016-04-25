@@ -54,9 +54,9 @@ func (fd *FailureDetector) nextMessage() *message.Message {
 	}
 
 	fd.index = (fd.index + 1) % len(fd.hostnames)
-	//if fd.index == 0 {
-	//	shuffle(fd.hostnames)
-	//}
+	if fd.index == 0 {
+		shuffle(fd.hostnames)
+	}
 	fd.curr = fd.hostnames[fd.index]
 	for fd.curr == infra.LocalNode.Hostname || fd.info[fd.curr] == FAULTY {
 		fd.index = (fd.index + 1) % len(fd.hostnames)
