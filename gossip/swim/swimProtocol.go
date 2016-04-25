@@ -222,7 +222,7 @@ func (swim *SwimProtocol) pingNext() bool {
 
 // Ping random several nodes
 func (swim *SwimProtocol) pingRandom() bool {
-	fmt.Println("ping random nodes...")
+	fmt.Print("ping random nodes [ ")
 	fo := make(chan *message.Message, RAMDOM_PING_NUM)
 	for i := 0; i<RAMDOM_PING_NUM; i++ {
 		req := swim.failureDetector.randomMessage()
@@ -231,18 +231,14 @@ func (swim *SwimProtocol) pingRandom() bool {
 		utils.Fanout(fo, res)
 		//swim.forwardTaskChan <- &task{req:req, res:res}
 	}
-	fmt.Println()
+	fmt.Println("]")
 
-	fmt.Println("ping random nodes to probe")
 	select {
 	case rcvMsg := <-fo:
 		if rcvMsg != nil {
-			//fmt.Printf("ping random nodes, get res %+v\n", rcvMsg)
-			//fmt.Println("ping random nodes succeed")
 			swim.failureDetector.update(rcvMsg)
-			return false
+			return true
 		} else {
-			//fmt.Println("ping random nodes failed")
 			return false
 		}
 	case <-time.After(time.Millisecond * WAIT_TIME_DEFAULT * RAMDOM_PING_NUM / 2):
