@@ -1,7 +1,7 @@
 package swim
 
 import (
-	"sync"
+	//"sync"
 	ch "github.com/otnt/ds/consistentHashing"
 	"github.com/otnt/ds/message"
 	"encoding/json"
@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"github.com/otnt/ds/replication"
 	"math/rand"
-	"time"
+	//"time"
 )
 
 const (
@@ -142,80 +142,79 @@ func (fd *FailureDetector) update(msg *message.Message) {
 		fd.updateStatus(k, v)
 	}
 
-	//fd.updateStatus(fdm.Src, HEALTHY)
-	fd.updateStatus(fdm.Src, RECOVER)
+	fd.updateStatus(fdm.Src, HEALTHY)
+	//fd.updateStatus(fdm.Src, RECOVER)
 }
 
 func (fd *FailureDetector) updateStatus(hostname string, status string) {
-	//fd.info[hostname] = status
-	if status == FAULTY {
-		fd.info[hostname] = FAULTY
-	//} else if status == SUSPECTED && fd.info[hostname] == HEALTHY {
-	//	fd.info[hostname] = SUSPECTED
-	} else if status == RECOVER {
-		//fmt.Printf("%s back to alive\n", hostname)
-		fd.info[hostname] = HEALTHY
-	}
+	fd.info[hostname] = status
+	//if status == FAULTY {
+	//	fd.info[hostname] = FAULTY
+	//} else if status == RECOVER {
+	//	//fmt.Printf("%s back to alive\n", hostname)
+	//	fd.info[hostname] = HEALTHY
+	//}
 }
 
 const (
 	HEALTHY = "healthy"
-	//SUSPECTED_1 = "suspected_1"
-	//SUSPECTED_2 = "suspected_2"
-	//SUSPECTED_3 = "suspected_3"
-	RECOVER = "recover"
+	SUSPECTED_1 = "suspected_1"
+	SUSPECTED_2 = "suspected_2"
+	SUSPECTED_3 = "suspected_3"
+	//RECOVER = "recover"
 	SUSPECTED = "suspected"
 	FAULTY = "faulty"
 )
 
-//var statusFailMap = map[string]string{
-//	HEALTHY:SUSPECTED_1,
-//	SUSPECTED_1:SUSPECTED_2,
-//	SUSPECTED_2:SUSPECTED_3,
-//	SUSPECTED_3:FAULTY,
-//	FAULTY:FAULTY,
-//}
+var statusFailMap = map[string]string{
+	HEALTHY:SUSPECTED_1,
+	SUSPECTED_1:SUSPECTED_2,
+	//SUSPECTED_2:SUSPECTED_3,
+	//SUSPECTED_3:FAULTY,
+	SUSPECTED_2:FAULTY,
+	FAULTY:FAULTY,
+}
 
 // Current node probe failed
-//func (fd *FailureDetector) fail() {
-//	newStatus := statusFailMap[fd.info[fd.curr]]
-//	fd.info[fd.curr] = newStatus
-//
-//	if newStatus == FAULTY {
-//		fmt.Printf("node %s failed, now replicating...\n", fd.curr)
-//
-//		replication.NotifyNodeDies(infra.NodeIndexMap[fd.curr].Keys[0])
-//
-//		fd.ring.RemoveSync(infra.NodeIndexMap[fd.curr])
-//	}
-//	log.Printf("%s new status %s\n", fd.curr, newStatus)
-//}
+func (fd *FailureDetector) fail() {
+	newStatus := statusFailMap[fd.info[fd.curr]]
+	fd.info[fd.curr] = newStatus
 
-var mutex sync.Mutex
-func (fd *FailureDetector) fail(name string) {
-	go func() {
-		fd.info[name] = SUSPECTED
-		<-time.After(time.Millisecond * FAIL_TIME)
-		newStatus := fd.info[name]
-		if fd.info[name] != HEALTHY {
-			newStatus = FAULTY
-			fd.info[name] = FAULTY
-		}
+	if newStatus == FAULTY {
+		fmt.Printf("node %s failed, now replicating...\n", fd.curr)
 
-		if newStatus == FAULTY {
-			mutex.Lock()
-			_, found := fd.ring.Get(infra.NodeIndexMap[name].Keys[0]) 
-			if found {
-				fmt.Printf("******node %s failed, now replicating...********\n", name)
+		replication.NotifyNodeDies(infra.NodeIndexMap[fd.curr].Keys[0])
 
-				replication.NotifyNodeDies(infra.NodeIndexMap[name].Keys[0])
-
-				fd.ring.RemoveSync(infra.NodeIndexMap[name])
-			}
-			mutex.Unlock()
-		}
-	}()
+		fd.ring.RemoveSync(infra.NodeIndexMap[fd.curr])
+	}
+	log.Printf("%s new status %s\n", fd.curr, newStatus)
 }
+
+//var mutex sync.Mutex
+//func (fd *FailureDetector) fail(name string) {
+//	go func() {
+//		fd.info[name] = SUSPECTED
+//		<-time.After(time.Millisecond * FAIL_TIME)
+//		newStatus := fd.info[name]
+//		if fd.info[name] != HEALTHY {
+//			newStatus = FAULTY
+//			fd.info[name] = FAULTY
+//		}
+//
+//		if newStatus == FAULTY {
+//			mutex.Lock()
+//			_, found := fd.ring.Get(infra.NodeIndexMap[name].Keys[0]) 
+//			if found {
+//				fmt.Printf("******node %s failed, now replicating...********\n", name)
+//
+//				replication.NotifyNodeDies(infra.NodeIndexMap[name].Keys[0])
+//
+//				fd.ring.RemoveSync(infra.NodeIndexMap[name])
+//			}
+//			mutex.Unlock()
+//		}
+//	}()
+//}
 
 func shuffle(list []string) {
 	for i := 1; i < len(list); i++ {

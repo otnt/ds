@@ -155,7 +155,8 @@ func (swim *SwimProtocol) runPinger() {
 		for {
 			intervalChan := time.After(time.Millisecond * PING_INTERVAL_DEFAULT)
 			if !swim.pingNext() && !swim.pingRandom() {
-					swim.failureDetector.fail(swim.failureDetector.curr)
+					//swim.failureDetector.fail(swim.failureDetector.curr)
+					swim.failureDetector.fail()
 			}
 			<-intervalChan
 		}
