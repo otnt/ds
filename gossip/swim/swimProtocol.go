@@ -214,7 +214,7 @@ func (swim *SwimProtocol) pingNext() bool {
 		fmt.Printf("ping next node %s succeed\n", rcv.Src)
 		return true
 	} else {
-		fmt.Printf("ping next node %s failed\n",rcv.Src)
+		fmt.Printf("ping next node %s failed\n", req.Dest)
 		return false
 	}
 }
