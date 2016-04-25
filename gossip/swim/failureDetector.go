@@ -236,6 +236,7 @@ func NewFailureDetector(ring *ch.Ring) *FailureDetector {
 		fd.info[n.Hostname] = n.Status.(string)
 	}
 	fd.index = 0
+	shuffle(fd.hostnames)
 
 	return &fd
 }
