@@ -54,6 +54,9 @@ func (fd *FailureDetector) nextMessage() *message.Message {
 	}
 
 	fd.index = (fd.index + 1) % len(fd.hostnames)
+	if fd.index == 0 {
+		shuffle(fd.hostnames)
+	}
 	fd.curr = fd.hostnames[fd.index]
 	for fd.curr == infra.LocalNode.Hostname || fd.info[fd.curr] == FAULTY {
 		fd.index = (fd.index + 1) % len(fd.hostnames)
@@ -211,6 +214,15 @@ func (fd *FailureDetector) fail(name string) {
 			mutex.Unlock()
 		}
 	}()
+}
+
+func shuffle(list []string) {
+	for i := 1; i < len(list); i++ {
+		ii := rand.Intn(i)
+		tmp := list[ii]
+		list[ii] = list[i]
+		list[i] = tmp
+	}
 }
 
 func NewFailureDetector(ring *ch.Ring) *FailureDetector {
