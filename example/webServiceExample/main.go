@@ -56,7 +56,7 @@ func main() {
 				if messageKind == replication.KIND_REPLICATION { /* Replication */
 					fmt.Println("Received message to replicate")
 					replication.ReplChan <- &newMessage
-				} else if messageKind == replication.KIND_REPLICN_ACK {
+				} else if messageKind == replication.KIND_REPLICN_ACK { /* Replication */
 					replication.AckChan <- &newMessage
 				} else if messageKind == webService.KIND_FORWARD {
 					webService.ForwardChan <- &newMessage
@@ -84,8 +84,8 @@ func main() {
 					swimProtocol.ForwardChan <- &newMessage
 				} else if messageKind == swim.SWIM_ACK {
 					swimProtocol.AckChan <- &newMessage
-				} else if messageKind == replication.KIND_TRANSFER {
-					replication.TransferChan <- &newMessage
+				} else if messageKind == swim.SWIM_FORWARD_ACK {
+					swimProtocol.ForwardAckChan <- &newMessage
 				}
 
 			case <-time.After(time.Millisecond * 1):
@@ -97,80 +97,3 @@ func main() {
 	block := make(chan bool)
 	<-block
 }
-
-/*
-package main
-
-import (
-	//	"bufio"
-	"fmt"
-	ch "github.com/otnt/ds/consistentHashing"
-	"github.com/otnt/ds/infra"
-	"github.com/otnt/ds/message"
-	"github.com/otnt/ds/node"
-	"github.com/otnt/ds/replication"
-	"os"
-	//	"strings"
-	"time"
-)
-
-func main() {
-	//init infra
-	if len(os.Args) != 3 {
-		fmt.Fprintf(os.Stderr, "Usage: %s Hostname Port\n", os.Args[0])
-		os.Exit(1)
-	}
-	localHost := os.Args[1]
-	infra.InitNetwork(localHost)
-
-	time.Sleep(500)
-	fmt.Println("You can start sending messages")
-	//fmt.Println("<dest> <kind>")
-	//init consistent hashing
-	ring := ch.NewRing()
-	for _, n := range infra.NodeIndexMap {
-		nn := node.Node(*n)
-		ring.AddSync(&nn)
-	}
-
-
-	//init replication
-	replication.InitReplication(ring)
-	go senderApp()
-	go messageDispatcher()
-
-	block := make(chan bool)
-	<-block
-}
-
-func senderApp() {
-	//reader := bufio.NewReader(os.Stdin)
-	if infra.GetLocalNode().Hostname == "Alice" {
-		replication.SendCollnToNewPrimary("Charlie")
-	} else if infra.GetLocalNode().Hostname == "Charlie" {
-		replication.MergeCollections("Bob")
-	}
-
-}
-
-func messageDispatcher() {
-	//init MongoDB
-	fmt.Println("Inside messageDispatcher of main")
-	for {
-		select {
-		case newMessage := <-infra.ReceivedBuffer:
-			messageKind := message.GetKind(&newMessage)
-
-			fmt.Println("Received New Message!!")
-			fmt.Println("The New Message is ", newMessage)
-
-			if messageKind == replication.KIND_TRANSFER {
-				time.Sleep(100 * time.Millisecond)
-				replication.AddNewCollection(&newMessage)
-			}
-
-		case <-time.After(time.Millisecond * 1):
-			continue
-		}
-	}
-}*/

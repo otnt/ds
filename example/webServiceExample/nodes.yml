@@ -8,3 +8,13 @@ servers :
   - hostname : C
     ip : 127.0.0.1
     port : 34567
+  - hostname : D
+    ip : 127.0.0.1
+    port : 1234
+  - hostname : E
+    ip : 127.0.0.1
+    port : 2345
+  - hostname : F
+    ip : 127.0.0.1
+    port : 3456
+
