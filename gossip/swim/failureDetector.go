@@ -153,6 +153,7 @@ func (fd *FailureDetector) updateStatus(hostname string, status string) {
 	//} else if status == SUSPECTED && fd.info[hostname] == HEALTHY {
 	//	fd.info[hostname] = SUSPECTED
 	} else if status == RECOVER {
+		fmt.Printf("%s back to alive\n", hostname)
 		fd.info[hostname] = HEALTHY
 	}
 }
