@@ -53,9 +53,14 @@ func initListener() {
 		for {
 			select {
 			case msg := <-ReplChan:
-				UpdateSelfDB(msg)
-				SendAcks(msg)
+				err := UpdateSelfDB(msg)
+				fmt.Println("Updating DB", err)
+				if err == nil {
+					fmt.Println("Sending Acknowledgement")
+					SendAcks(msg)
+				}
 			case msg := <-AckChan:
+				fmt.Println("Incrementing Acknowledgement")
 				ProcessAcks(msg)
 			}
 		}
@@ -65,6 +70,9 @@ func initListener() {
 /* Receives the dbAccess.PetGagPost */
 /* Modifies the dbAccess.PetGagPost to a message to send it to secondary nodes */
 func AskNodesToUpdate(post dbAccess.PetGagPost) {
+
+	NumAcks = 0
+
 	var secNodeKeys []string
 	var nodeKey string = GetKey(post.ImageURL)
 
@@ -92,8 +100,10 @@ func AskNodesToUpdate(post dbAccess.PetGagPost) {
 	/* Wait For Acknowledgements - Include time out option */
 	go func() {
 		var acksObtained int = 0
+		fmt.Println("Waiting For Acks")
 		for {
 			acksObtained = NumAcks
+			//fmt.Println("Acks Obtained = ", NumAcks)
 			if acksObtained == ReplicationFactor {
 				fmt.Println("acks obtained = ", NumAcks)
 				break
@@ -105,6 +115,7 @@ func AskNodesToUpdate(post dbAccess.PetGagPost) {
 }
 
 func ProcessAcks(msg *message.Message) {
+	fmt.Println("Inside Process Acks")
 	NumAcks = NumAcks + 1
 }
 
@@ -115,7 +126,7 @@ func RespondToClient() {
 
 /* Functions to be implemented if the message is of kind replicate */
 
-func UpdateSelfDB(msg *message.Message) {
+func UpdateSelfDB(msg *message.Message) (err error) {
 	/* Decode the message to get the Post */
 	post := StringToStruct(msg.Data)
 	operation := post.DbOp
@@ -129,24 +140,36 @@ func UpdateSelfDB(msg *message.Message) {
 		_, err := post.Write()
 		if err != nil {
 			log.Fatal(err)
-			return
+			return err
 		}
 	} else if operation == COMMENT {
 		addCommentMsg := makeCommentMsg(post)
-		addCommentMsg.AddCommmentInDB()
+		err := addCommentMsg.AddCommmentInDB()
+		if err != nil {
+			log.Fatal(err)
+			return err
+		}
 
 	} else if operation == UPVOTE {
 		voteMsg := makeVoteMsg(post)
-		voteMsg.UpvotePost()
+		err := voteMsg.UpvotePost()
+		if err != nil {
+			log.Fatal(err)
+			return err
+		}
 
 	} else if operation == DOWNVOTE {
 		voteMsg := makeVoteMsg(post)
-		voteMsg.DownvotePost()
-
+		err := voteMsg.DownvotePost()
+		if err != nil {
+			log.Fatal(err)
+			return err
+		}
 	} else {
 		fmt.Println("Error in operation field\n")
-
 	}
+
+	return nil
 
 }
 

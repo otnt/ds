@@ -227,5 +227,6 @@ func (post *PetGagPost) Write() (uid string, err error) { /* Returns objectID in
 	if err != nil {
 		log.Fatal(err)
 	}
+	fmt.Println("Inserted Object into the Database with ObjId", i.Hex())
 	return i.Hex(), err
 }
