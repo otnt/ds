@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	FAIL_TIME = 5000
+	FAIL_TIME = 9000
 )
 
 const (
