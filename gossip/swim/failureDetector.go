@@ -150,8 +150,8 @@ func (fd *FailureDetector) updateStatus(hostname string, status string) {
 	//fd.info[hostname] = status
 	if status == FAULTY {
 		fd.info[hostname] = FAULTY
-	} else if status == SUSPECTED && fd.info[hostname] == HEALTHY {
-		fd.info[hostname] = SUSPECTED
+	//} else if status == SUSPECTED && fd.info[hostname] == HEALTHY {
+	//	fd.info[hostname] = SUSPECTED
 	} else if status == RECOVER {
 		fd.info[hostname] = HEALTHY
 	}

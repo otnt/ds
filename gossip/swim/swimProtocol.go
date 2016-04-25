@@ -211,11 +211,10 @@ func (swim *SwimProtocol) pingNext() bool {
 	//log.Printf("%s ping %s\n", infra.LocalNode.Hostname, req.Dest)
 	if rcv := <-res; rcv != nil {
 		swim.failureDetector.update(rcv)
-	//	fmt.Printf("ping next node %s succeed %+v\n", req.Dest, rcv)
-		fmt.Printf("ping next node %s succeed\n", req.Dest)
+		fmt.Printf("ping next node %s succeed\n", rcv.Src)
 		return true
 	} else {
-		fmt.Printf("ping next node %s failed\n", req.Dest)
+		fmt.Printf("ping next node %s failed\n",rcv.Src)
 		return false
 	}
 }
