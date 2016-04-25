@@ -11,8 +11,8 @@ import (
 
 // Default configuration parameters
 const (
-	WAIT_TIME_DEFAULT     = 200
-	PING_INTERVAL_DEFAULT = 400
+	WAIT_TIME_DEFAULT     = 300
+	PING_INTERVAL_DEFAULT = 1000
 	RAMDOM_PING_NUM = 2
 	TASK_QUEUE_SIZE = 10
 )
