@@ -1,0 +1,20 @@
+
+fetch from terminal:
+
+// fetch all posts
+curl -G http://localhost:8080/fetchAllPosts
+
+// down vote a post
+curl -d '{ "ImageId": "57195016a78ffe51aef799ac"}' http://localhost:8080/downVote
+
+//upvote a post
+curl -d '{ "ImageId": "57195016a78ffe51aef799ac"}' http://localhost:8080/upVote
+
+//add a new post (don’t test this for now!, have to make a tiny change. use mock data for testing)
+curl -d '{ "UserName": "user3", "ImageURL": "https://v.cdn.vine.co/r/avatars/050772A5341197694558906068992_35c56600b3a.2.1.jpg?versionId=2QyvDQhrHIvG01OZYYaTl4aVZ89k5l4t"}' http://localhost:8080/addPost
+
+
+//To add mock data in db (json tags are important)  
+> use PetGagDatabase
+>db.PetGagPosts.insert( {UserName: "user1", ImageURL: "https://v.cdn.vine.co/r/avatars/050772A5341197694558906068992_35c56600b3a.2.1.jpg?versionId=2QyvDQhrHIvG01OZYYaTl4aVZ89k5l4t", UpVote: Number(100), DownVote: Number(24), CommentList: [{UserCName: "Mike", Comment: "Like it!"}, {UserCName: "Nancy", Comment: "So cute!"}]} );
+
