@@ -2,14 +2,14 @@ package infra
 
 import (
 	"fmt"
+	"github.com/otnt/ds/message"
+	"github.com/otnt/ds/node"
+	"gopkg.in/yaml.v2"
 	"io/ioutil"
-	"os"
 	"net"
+	"os"
 	"strings"
 	"time"
-	"github.com/otnt/ds/node"
-	"github.com/otnt/ds/message"
-	"gopkg.in/yaml.v2"
 )
 
 type YamlConfig struct {
@@ -36,7 +36,7 @@ var ReceivedBuffer chan message.Message
 
 func listenerThread(conn *net.TCPConn) {
 	readFromSocket := make([]byte, 4096)
-	defer conn.Close()  // close connection at exit
+	defer conn.Close() // close connection at exit
 	for {
 		read_len, err := conn.Read(readFromSocket)
 		if err != nil {
@@ -49,20 +49,22 @@ func listenerThread(conn *net.TCPConn) {
 		} else {
 			var rcvMessage message.Message
 			err := message.Unmarshal(readFromSocket[:read_len], &rcvMessage)
+			fmt.Println("Message in Infra:", read_len, string(readFromSocket[:read_len]))
 			checkError(err)
 			go func() { ReceivedBuffer <- rcvMessage }()
 		}
 		/* Clear message for next read */
 		readFromSocket = make([]byte, 4096)
 	}
-	
+
 }
 
 func SendUnicast(dest string, data string, kind string) {
-	
+
 	sendMessage := message.NewMessage(LocalNode.Hostname, dest, data, kind)
 	if dest == LocalNode.Hostname {
 		go func() { ReceivedBuffer <- sendMessage }()
+		//ReceivedBuffer <- sendMessage
 		return
 	}
 	conn, ok := connectionMap[dest]
@@ -74,7 +76,7 @@ func SendUnicast(dest string, data string, kind string) {
 			delete(connectionMap, dest)
 		}
 	} else {
-		fmt.Println("Error: Destination [",dest,"] unknown")
+		fmt.Println("Error: Destination [", dest, "] unknown")
 	}
 }
 
@@ -84,13 +86,13 @@ func connectToNode(node *node.Node) int {
 	tcpAddr, err := net.ResolveTCPAddr("tcp4", service)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error [net.ResolveTCPAddr]: %s\n", err.Error())
-		return -1;
+		return -1
 	}
-	
+
 	/* Try to connect to the remote, sleep 5 seconds between retries */
 	var conn *net.TCPConn
 	for {
-	
+
 		/* Connect to Server */
 		conn, err = net.DialTCP("tcp", nil, tcpAddr)
 		if err == nil {
@@ -101,12 +103,12 @@ func connectToNode(node *node.Node) int {
 			continue
 		}
 	}
-	
+
 	/* Send a connection message to identify self */
 	connectionMessage := fmt.Sprintf("HELO MESSAGE FROM %s CONNECT", LocalNode.Hostname)
 	_, err = conn.Write([]byte(connectionMessage))
 	checkError(err)
-	
+
 	/* Save the net.Conn pointer to map using remote server's Uuid */
 	connectionMap[node.Hostname] = conn
 	go listenerThread(conn)
@@ -132,10 +134,10 @@ func acceptConnectionsFromOtherServers(pYamlConfig *YamlConfig) {
 	connectionCount := 0
 	/* Every server before localHost in the list will attempt to connect */
 	for _, each := range pYamlConfig.Servers {
-                if each.Hostname < LocalNode.Hostname {
+		if each.Hostname < LocalNode.Hostname {
 			connectionCount++
-                }
-        }
+		}
+	}
 	service := fmt.Sprintf(":%d", LocalNode.Port)
 	tcpAddr, err := net.ResolveTCPAddr("tcp4", service)
 	checkError(err)
@@ -175,12 +177,12 @@ func InitNetwork(localHost string) {
 	NodeIndexMap = map[string]*node.Node{}
 	connectionMap = map[string]*net.TCPConn{}
 	ReceivedBuffer = make(chan message.Message)
-	vnodeNum := 2
+	vnodeNum := 1
 	var yamlConfig YamlConfig
 	err := yamlConfig.ParseYaml("nodes.yml")
 	checkError(err)
 	for _, each := range yamlConfig.Servers {
-		/* Build the NodeIndexMap hashmap 
+		/* Build the NodeIndexMap hashmap
 		if each.Hostname = localHost {
 			localHostIndex = index
 		} */
@@ -188,7 +190,7 @@ func InitNetwork(localHost string) {
 	}
 
 	for key, value := range NodeIndexMap {
-	    fmt.Println("Key:", key, "Value:", value)
+		fmt.Println("Key:", key, "Value:", value)
 	}
 
 	LocalNode = NodeIndexMap[localHost]
@@ -207,12 +209,12 @@ func GetLocalNode() *node.Node {
 }
 
 func CheckIncomingMessages() message.Message {
-	newMessage := <- ReceivedBuffer
+	newMessage := <-ReceivedBuffer
 	return newMessage
 }
 
 func checkError(err error) {
-    if err != nil {
-        fmt.Fprintf(os.Stderr, "Fatal error: %s\n", err.Error())
-    }
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Fatal error: %s\n", err.Error())
+	}
 }

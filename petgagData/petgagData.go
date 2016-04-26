@@ -6,7 +6,7 @@ import (
 )
 
 type Comment struct {
-	Comment string `bson:"comment"`
+	Comt string `bson:"comment"`
 	//UserID   string `bson:"user_comment"`
 	UserName string `bson:"user_name"`
 }
@@ -24,9 +24,15 @@ type PetgagData struct {
 	ObjID     string /* hex string representation of Object ID. For new item, ObjID = "nil" */
 }
 
-func NewPetGagData(dbOp string, comment Comment, upVote int, downVote int, userName string, userID string, objID string, collection string, imageURL string, belongsTo string) (data *PetgagData) {
+func NewComment(comt string, userName string) (comment Comment) {
+	comment.Comt = comt
+	comment.UserName = userName
+	return comment
+}
+
+func NewPetGagData(dbOp string, comment Comment, upVote int, downVote int, userName string, userID string, objID string, imageURL string, belongsTo string) (data *PetgagData) {
 	data = &PetgagData{}
-	data.Commt = make([]Comment, 1000)
+	data.Commt = make([]Comment, 1)
 	data.Commt[0] = comment
 	//data.Commt.Comment = comment.Comment
 	//data.Commt.UserName = comment.UserName
