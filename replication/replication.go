@@ -48,6 +48,11 @@ func InitReplication(r *ch.Ring) {
 	initListener()
 }
 
+func UpdateNumAcks() {
+	msg := <-AckChan
+	ProcessAcks(msg)
+}
+
 func initListener() {
 	go func() {
 		for {
@@ -60,9 +65,9 @@ func initListener() {
 					fmt.Println("Sending Acknowledgement")
 					SendAcks(msg)
 				}
-			case msg := <-AckChan:
+				/*case msg := <-AckChan:
 				fmt.Println("Incrementing Acknowledgement")
-				ProcessAcks(msg)
+				ProcessAcks(msg) */
 			}
 		}
 	}()
