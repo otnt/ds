@@ -53,6 +53,7 @@ func initListener() {
 		for {
 			select {
 			case msg := <-ReplChan:
+				fmt.Println("Calling UpdateSelfDB\n")
 				err := UpdateSelfDB(msg)
 				fmt.Println("Updating DB", err)
 				if err == nil {
@@ -77,7 +78,11 @@ func AskNodesToUpdate(post dbAccess.PetGagPost) {
 	var nodeKey string = GetKey(post.ImageURL)
 
 	secNodeKeys = append(secNodeKeys, nodeKey)
+
+	fmt.Println("Converting post to a message")
 	data := StructToString(post)
+
+	fmt.Println("Successfully converted to string")
 
 	/* Find Secondary Keys */
 	for i := 1; i <= ReplicationFactor; i++ {
@@ -94,11 +99,13 @@ func AskNodesToUpdate(post dbAccess.PetGagPost) {
 		if err == false {
 			fmt.Println("Error in obtaining node from key: %s\n", err)
 		}
+		fmt.Println("Sending to secondary nodes", secondaryNode.Hostname)
 		infra.SendUnicast(secondaryNode.Hostname, data, KIND_REPLICATION)
+		fmt.Println("Successfully sent to secondary nodes")
 	}
 
-	/* Wait For Acknowledgements - Include time out option */
-	go func() {
+	// Wait For Acknowledgements - Include time out option
+	/*go func() {
 		var acksObtained int = 0
 		fmt.Println("Waiting For Acks")
 		for {
@@ -110,7 +117,7 @@ func AskNodesToUpdate(post dbAccess.PetGagPost) {
 			}
 		}
 		RespondToClient()
-	}()
+	}()*/
 
 }
 
@@ -121,24 +128,30 @@ func ProcessAcks(msg *message.Message) {
 
 func RespondToClient() {
 	//infra.SendUnicast(message.PGData.BelongsTo, "Completed Replication", "response")
-	fmt.Println("Replication is now complete")
+	fmt.Println("Replication is now complete\n")
+	fmt.Println("*************************************************")
 }
 
 /* Functions to be implemented if the message is of kind replicate */
 
 func UpdateSelfDB(msg *message.Message) (err error) {
 	/* Decode the message to get the Post */
+	fmt.Println("Converting from string to struct")
 	post := StringToStruct(msg.Data)
+
+	fmt.Println("Successfully decoded into struct", post)
 	operation := post.DbOp
 
 	/* Modify Collection Name */
 
-	localNode := infra.GetLocalNode()
-	post.BelongsTo = localNode.Hostname + " - replication"
+	post.BelongsTo = msg.Src + "-replication"
+	fmt.Println("I am the secondary", post.BelongsTo)
 
 	if operation == INSERT {
 		_, err := post.Write()
+		fmt.Println("Inserted into Database at the secondary")
 		if err != nil {
+			fmt.Println("Unable to insert into secondary db")
 			log.Fatal(err)
 			return err
 		}
@@ -152,6 +165,7 @@ func UpdateSelfDB(msg *message.Message) (err error) {
 
 	} else if operation == UPVOTE {
 		voteMsg := makeVoteMsg(post)
+		fmt.Println("Collection is : ", post.BelongsTo)
 		err := voteMsg.UpvotePost()
 		if err != nil {
 			log.Fatal(err)
@@ -181,8 +195,10 @@ func SendAcks(message *message.Message) {
 /******************** Helper Functions ********************/
 
 func StructToString(post dbAccess.PetGagPost) (encoded_msg string) {
+	//	fmt.Println("Converting from struct to string")
 	var buf bytes.Buffer
 	json.NewEncoder(&buf).Encode(post)
+	fmt.Println("The string is: ", buf.String())
 	return buf.String()
 }
 
@@ -205,13 +221,15 @@ func StringToStruct(data string) (post dbAccess.PetGagPost) {
 	return post
 }
 
-func getCollectionName() (collName string) {
+/*func getCollectionName() (collName string) {
 	localNode := infra.GetLocalNode()
-	collName = localNode.Hostname + " - replication"
+	collName = localNode.Hostname + "-replication"
 	return localNode.Hostname
-}
+}*/
 
 func makeVoteMsg(post dbAccess.PetGagPost) (voteMsg dbAccess.VoteMsg) {
+
+	fmt.Println("Constructing vote message")
 	voteMsg = dbAccess.VoteMsg{}
 	voteMsg.BelongsTo = post.BelongsTo
 	voteMsg.DbOp = post.DbOp

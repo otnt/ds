@@ -188,6 +188,8 @@ func (msg *VoteMsg) UpvotePost() (err error) {
 	collection_name := msg.BelongsTo
 	collection := session.DB("PetGagDatabase").C(collection_name)
 
+	fmt.Println("Searching in collection: ", collection_name)
+
 	id := bson.ObjectIdHex(msg.ImageId)
 	fmt.Println(id)
 
@@ -211,6 +213,8 @@ func (post *PetGagPost) Write() (uid string, err error) { /* Returns objectID in
 	collection := session.DB("PetGagDatabase").C(collection_name)
 
 	var i bson.ObjectId
+
+	fmt.Println("Inserting data into the collection", collection_name)
 
 	if post.ObjID == "nil" {
 		i = bson.NewObjectId()

@@ -130,9 +130,26 @@ func (ws *WebService) HandleComment(msg *message.Message) {
 	}
 
 	petGagPost := comment.ToPetGagPost()
+
+	fmt.Println("Requesting nodes to update ")
 	replication.AskNodesToUpdate(petGagPost)
 
-	infra.SendUnicast(msg.Src, "ok", KIND_COMMENT_ACK)
+	go func() {
+		var acksObtained int = 0
+		fmt.Println("Waiting For Acks")
+		for {
+			acksObtained = replication.NumAcks
+			//fmt.Println("Acks Obtained = ", NumAcks)
+			if acksObtained == replication.ReplicationFactor {
+				fmt.Println("acks obtained = ", replication.NumAcks)
+				break
+			}
+		}
+		//RespondToClient()
+		infra.SendUnicast(msg.Src, "ok-replication completed", KIND_COMMENT_ACK)
+	}()
+
+	//infra.SendUnicast(msg.Src, "ok", KIND_COMMENT_ACK)
 	fmt.Println(comment)
 }
 
@@ -147,6 +164,8 @@ func (ws *WebService) HandleForward(msg *message.Message) {
 	localNode := infra.GetLocalNode()
 	newPost.BelongsTo = localNode.Hostname
 	newPost.DbOp = replication.INSERT
+	newPost.ObjID = "nil"
+	fmt.Println("I am the primary", newPost.BelongsTo)
 
 	objID, err := newPost.Write()
 	if err != nil {
@@ -154,9 +173,25 @@ func (ws *WebService) HandleForward(msg *message.Message) {
 	}
 
 	newPost.ObjID = objID
+	fmt.Println("Asking nodes to update", newPost)
 	replication.AskNodesToUpdate(*newPost)
 
-	infra.SendUnicast(msg.Src, "ok", KIND_FORWARD_ACK)
+	go func() {
+		var acksObtained int = 0
+		fmt.Println("Waiting For Acks")
+		for {
+			acksObtained = replication.NumAcks
+			//fmt.Println("Acks Obtained = ", NumAcks)
+			if acksObtained == replication.ReplicationFactor {
+				fmt.Println("acks obtained = ", replication.NumAcks)
+				break
+			}
+		}
+		//RespondToClient()
+		infra.SendUnicast(msg.Src, "ok-replication completed", KIND_FORWARD_ACK)
+	}()
+
+	//infra.SendUnicast(msg.Src, "ok", KIND_FORWARD_ACK)
 	fmt.Println(newPost)
 }
 
@@ -180,7 +215,20 @@ func (ws *WebService) HandleUpVote(msg *message.Message) {
 	petGagPost := vote.ToPetGagPost()
 	replication.AskNodesToUpdate(petGagPost)
 
-	infra.SendUnicast(msg.Src, "ok", KIND_UP_VOTE_ACK)
+	go func() {
+		var acksObtained int = 0
+		fmt.Println("Waiting For Acks")
+		for {
+			acksObtained = replication.NumAcks
+			//fmt.Println("Acks Obtained = ", NumAcks)
+			if acksObtained == replication.ReplicationFactor {
+				fmt.Println("acks obtained = ", replication.NumAcks)
+				break
+			}
+		}
+		//RespondToClient()
+		infra.SendUnicast(msg.Src, "ok-replication completed", KIND_UP_VOTE_ACK)
+	}()
 	fmt.Println(vote)
 }
 
@@ -204,7 +252,22 @@ func (ws *WebService) HandleDownVote(msg *message.Message) {
 	petGagPost := vote.ToPetGagPost()
 	replication.AskNodesToUpdate(petGagPost)
 
-	infra.SendUnicast(msg.Src, "ok", KIND_DOWN_VOTE_ACK)
+	go func() {
+		var acksObtained int = 0
+		fmt.Println("Waiting For Acks")
+		for {
+			acksObtained = replication.NumAcks
+			//fmt.Println("Acks Obtained = ", NumAcks)
+			if acksObtained == replication.ReplicationFactor {
+				fmt.Println("acks obtained = ", replication.NumAcks)
+				break
+			}
+		}
+		//RespondToClient()
+		infra.SendUnicast(msg.Src, "ok-replication completed", KIND_DOWN_VOTE_ACK)
+	}()
+
+	//infra.SendUnicast(msg.Src, "ok", KIND_DOWN_VOTE_ACK)
 	fmt.Println(vote)
 }
 
@@ -217,6 +280,7 @@ func (ws *WebService) HandleFetch(msg *message.Message) {
 
 	posts := db.GetAllPostsFromDB(collection_name)
 	var buf bytes.Buffer
+	fmt.Println("Inside Handle Fetch", posts)
 	json.NewEncoder(&buf).Encode(posts)
 	infra.SendUnicast(msg.Src, buf.String(), KIND_FETCH_ACK)
 }
@@ -345,6 +409,9 @@ func upVote(w http.ResponseWriter, r *http.Request) {
 			}
 			primary, _ := primaryNode(id)
 			infra.SendUnicast(primary.Hostname, string(body), KIND_UP_VOTE)
+
+			fmt.Println("Forwarded request to primary", primary.Hostname)
+
 			ok := waitFor(UpVoteAckChan, TIME_OUT)
 
 			if ok {
