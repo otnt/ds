@@ -1,10 +1,22 @@
 servers :
   - hostname : A
-    ip : 127.0.0.1
-    port : 12345
+    ip : 54.210.125.198
+    port : 1000
   - hostname : B
-    ip : 127.0.0.1
-    port : 23456
+    ip : 54.174.238.33
+    port : 2000
   - hostname : C
-    ip : 127.0.0.1
-    port : 34567
+    ip : 54.210.94.45
+    port : 3000
+  - hostname : D
+    ip : 52.91.138.48
+    port : 4000
+  - hostname : E
+    ip : 54.172.34.83
+    port : 5000
+  - hostname : F
+    ip : 54.210.126.187
+    port : 6000
+  - hostname : G
+    ip : 54.87.226.69
+    port : 7000
