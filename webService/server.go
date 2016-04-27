@@ -150,8 +150,12 @@ func (ws *WebService) HandleComment(msg *message.Message) {
 		//RespondToClient()
 		infra.SendUnicast(msg.Src, "ok-replication completed", KIND_COMMENT_ACK)
 	}() */
-	waitForN(replication.AckChan, TIME_OUT, replication.ReplicationFactor)
-	infra.SendUnicast(msg.Src, "ok", KIND_COMMENT_ACK)
+	ok := waitForN(replication.AckChan, TIME_OUT, replication.ReplicationFactor)
+	if ok {
+		infra.SendUnicast(msg.Src, "ok", KIND_COMMENT_ACK)
+	} else {
+		fmt.Println("Error in ack")
+	}
 	fmt.Println(comment)
 }
 
@@ -178,24 +182,12 @@ func (ws *WebService) HandleForward(msg *message.Message) {
 	fmt.Println("Asking nodes to update", newPost)
 	replication.AskNodesToUpdate(*newPost)
 
-	/*go func() {
-		var acksObtained int = 0
-		fmt.Println("Waiting For Acks")
-		for {
-			replication.UpdateNumAcks()
-			acksObtained = replication.NumAcks
-			//fmt.Println("Acks Obtained = ", NumAcks)
-			if acksObtained == replication.ReplicationFactor {
-				fmt.Println("acks obtained = ", replication.NumAcks)
-				break
-			}
-		}
-		//RespondToClient()
-		infra.SendUnicast(msg.Src, "ok-replication completed", KIND_FORWARD_ACK)
-	}() */
-
-	waitForN(replication.AckChan, TIME_OUT, replication.ReplicationFactor)
-	infra.SendUnicast(msg.Src, "ok", KIND_FORWARD_ACK)
+	ok := waitForN(replication.AckChan, TIME_OUT, replication.ReplicationFactor)
+	if ok {
+		infra.SendUnicast(msg.Src, "ok", KIND_FORWARD_ACK)
+	} else {
+		fmt.Println("Error in ack")
+	}
 	fmt.Println(newPost)
 }
 
@@ -218,24 +210,13 @@ func (ws *WebService) HandleUpVote(msg *message.Message) {
 
 	petGagPost := vote.ToPetGagPost()
 	replication.AskNodesToUpdate(petGagPost)
-
-	/*go func() {
-		var acksObtained int = 0
-		fmt.Println("Waiting For Acks")
-		for {
-			replication.UpdateNumAcks()
-			acksObtained = replication.NumAcks
-			//fmt.Println("Acks Obtained = ", NumAcks)
-			if acksObtained == replication.ReplicationFactor {
-				fmt.Println("acks obtained = ", replication.NumAcks)
-				break
-			}
-		}
-		//RespondToClient()
+	ok := waitForN(replication.AckChan, TIME_OUT, replication.ReplicationFactor)
+	if ok {
 		infra.SendUnicast(msg.Src, "ok-replication completed", KIND_UP_VOTE_ACK)
-	}()*/
-	waitForN(replication.AckChan, TIME_OUT, replication.ReplicationFactor)
-	infra.SendUnicast(msg.Src, "ok-replication completed", KIND_UP_VOTE_ACK)
+	} else {
+		fmt.Println("Error in ack")
+	}
+
 	fmt.Println(vote)
 }
 
@@ -258,24 +239,12 @@ func (ws *WebService) HandleDownVote(msg *message.Message) {
 
 	petGagPost := vote.ToPetGagPost()
 	replication.AskNodesToUpdate(petGagPost)
-
-	/* go func() {
-		var acksObtained int = 0
-		fmt.Println("Waiting For Acks")
-		for {
-			replication.UpdateNumAcks()
-			acksObtained = replication.NumAcks
-			//fmt.Println("Acks Obtained = ", NumAcks)
-			if acksObtained == replication.ReplicationFactor {
-				fmt.Println("acks obtained = ", replication.NumAcks)
-				break
-			}
-		}
-		//RespondToClient()
-		infra.SendUnicast(msg.Src, "ok-replication completed", KIND_DOWN_VOTE_ACK)
-	}() */
-	waitForN(replication.AckChan, TIME_OUT, replication.ReplicationFactor)
-	infra.SendUnicast(msg.Src, "ok", KIND_DOWN_VOTE_ACK)
+	ok := waitForN(replication.AckChan, TIME_OUT, replication.ReplicationFactor)
+	if ok {
+		infra.SendUnicast(msg.Src, "ok", KIND_DOWN_VOTE_ACK)
+	} else {
+		fmt.Println("Error in Acks")
+	}
 	fmt.Println(vote)
 }
 

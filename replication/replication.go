@@ -14,12 +14,14 @@ import (
 	"encoding/json"
 	"fmt"
 	ch "github.com/otnt/ds/consistentHashing"
-	"github.com/otnt/ds/dbAccess"
+	db "github.com/otnt/ds/dbAccess"
 	"github.com/otnt/ds/infra"
 	"github.com/otnt/ds/message"
+	"github.com/otnt/ds/node"
 	"log"
+	"reflect"
 	//"labix.org/v2/mgo"
-	//"labix.org/v2/mgo/bson"
+	"labix.org/v2/mgo/bson"
 )
 
 type DbOperation int
@@ -32,6 +34,7 @@ const (
 	DELETE           = "Delete"
 	KIND_REPLICATION = "Replication"
 	KIND_REPLICN_ACK = "Replcn_Ack"
+	KIND_TRANSFER    = "Replcn_Transfer"
 )
 
 const ReplicationFactor int = 1
@@ -40,11 +43,13 @@ var NumAcks int = 0
 var ReplRing *ch.Ring
 var ReplChan chan *message.Message
 var AckChan chan *message.Message
+var TransferChan chan *message.Message
 
 func InitReplication(r *ch.Ring) {
 	ReplRing = r
 	ReplChan = make(chan *message.Message)
 	AckChan = make(chan *message.Message)
+	TransferChan = make(chan *message.Message)
 	initListener()
 }
 
@@ -65,9 +70,9 @@ func initListener() {
 					fmt.Println("Sending Acknowledgement")
 					SendAcks(msg)
 				}
-				/*case msg := <-AckChan:
-				fmt.Println("Incrementing Acknowledgement")
-				ProcessAcks(msg) */
+			case msg := <-TransferChan:
+				fmt.Println("Received a transfer message")
+				AddNewCollection(msg)
 			}
 		}
 	}()
@@ -75,7 +80,7 @@ func initListener() {
 
 /* Receives the dbAccess.PetGagPost */
 /* Modifies the dbAccess.PetGagPost to a message to send it to secondary nodes */
-func AskNodesToUpdate(post dbAccess.PetGagPost) {
+func AskNodesToUpdate(post db.PetGagPost) {
 
 	NumAcks = 0
 
@@ -197,9 +202,114 @@ func SendAcks(message *message.Message) {
 
 }
 
-/******************** Helper Functions ********************/
+/******************* Fault Tolerance APIs *******************************/
 
-func StructToString(post dbAccess.PetGagPost) (encoded_msg string) {
+func AmIPredecessor(diedKey string) bool { /* The argument passed refers to the key of the node that has died */
+	predNode, _, _ := ReplRing.Predecessor(diedKey)
+	/* predNode, found := ReplRing.Get(predKey)
+	if !found {
+		fmt.Println("Error in getting node from key - Predecessor not found")
+	} */
+
+	localNode := infra.GetLocalNode()
+
+	if reflect.DeepEqual(predNode, localNode) {
+		return true
+	} else {
+		return false
+	}
+}
+
+func AmISuccessor(diedKey string) bool {
+	succNode, _, _ := ReplRing.Successor(diedKey)
+
+	localNode := infra.GetLocalNode()
+
+	if reflect.DeepEqual(succNode, localNode) {
+		return true
+	} else {
+		return false
+	}
+}
+
+func FindNewPrimary(diedKey string) (pnode *node.Node, pkey string) {
+	succNode, succKey, _ := ReplRing.Successor(diedKey)
+	return succNode, succKey
+}
+
+func SendCollnToNewPrimary(pnode *node.Node) {
+	collection_name := infra.GetLocalNode().Hostname
+	posts := db.GetAllPostsFromDB(collection_name)
+	var buf bytes.Buffer
+	json.NewEncoder(&buf).Encode(posts)
+
+	fmt.Println("Posts obtained are: ", posts)
+	fmt.Println("Data encoded is: ", buf.String())
+	/* Kind is assigned KIND_TRANSFER because this data should not be re-replicated */
+	infra.SendUnicast(pnode.Hostname, buf.String(), KIND_TRANSFER)
+}
+
+func AddNewCollection(msg *message.Message) {
+	collection_name := msg.Src + "-replication"
+	var d []bson.M
+
+	fmt.Println("Inside add new collection")
+
+	err := json.NewDecoder(bytes.NewBufferString(msg.Data)).Decode(&d)
+	if err != nil {
+		fmt.Printf("Error when decode data %v\n", err)
+		return
+	}
+
+	fmt.Println("Decoded data. Adding to collection")
+	for _, post := range d {
+		err := db.TransferToDb(collection_name, post)
+		if err != nil {
+			fmt.Println("Error in transferring data")
+		}
+	}
+}
+
+func MergeCollections(diedKey string) {
+	diedNode, found := ReplRing.Get(diedKey)
+	if !found {
+		fmt.Println("died key not found")
+	}
+	collection_name := diedNode.Hostname + "-replication"
+	fmt.Println("Inside Merge Collections")
+	posts := db.GetAllPostsFromDB(collection_name)
+
+	/* Change the collection name to itself */
+	collection_name = infra.GetLocalNode().Hostname
+
+	for _, post := range posts {
+		err := db.TransferToDb(collection_name, post)
+		if err != nil {
+			fmt.Println("Error in merging data")
+		}
+	}
+}
+
+func NotifyNodeDies(diedKey string) {
+	s := AmISuccessor(diedKey)
+	if s {
+		MergeCollections(diedKey)
+	}
+
+	p := AmIPredecessor(diedKey)
+	if p {
+		pnode, _ := FindNewPrimary(diedKey)
+		SendCollnToNewPrimary(pnode)
+	}
+}
+
+/* if Predecessor => send collection copy to successor */
+/* if Successor => add the collection that the Predecessor sent to a new collection */
+/* Merge the dead node's collection with its own */
+
+/******************** Helper Functions *******************************/
+
+func StructToString(post db.PetGagPost) (encoded_msg string) {
 	//	fmt.Println("Converting from struct to string")
 	var buf bytes.Buffer
 	json.NewEncoder(&buf).Encode(post)
@@ -218,7 +328,7 @@ func GetKey(id string) string {
 	return currentKey
 }
 
-func StringToStruct(data string) (post dbAccess.PetGagPost) {
+func StringToStruct(data string) (post db.PetGagPost) {
 	err := json.NewDecoder(bytes.NewBufferString(data)).Decode(&post)
 	if err != nil {
 		fmt.Printf("Error when decode data %v\n", err)
@@ -232,10 +342,10 @@ func StringToStruct(data string) (post dbAccess.PetGagPost) {
 	return localNode.Hostname
 }*/
 
-func makeVoteMsg(post dbAccess.PetGagPost) (voteMsg dbAccess.VoteMsg) {
+func makeVoteMsg(post db.PetGagPost) (voteMsg db.VoteMsg) {
 
 	fmt.Println("Constructing vote message")
-	voteMsg = dbAccess.VoteMsg{}
+	voteMsg = db.VoteMsg{}
 	voteMsg.BelongsTo = post.BelongsTo
 	voteMsg.DbOp = post.DbOp
 	voteMsg.ImageId = post.ObjID
@@ -243,8 +353,8 @@ func makeVoteMsg(post dbAccess.PetGagPost) (voteMsg dbAccess.VoteMsg) {
 	return voteMsg
 }
 
-func makeCommentMsg(post dbAccess.PetGagPost) (commentMsg dbAccess.AddCommentMsg) {
-	commentMsg = dbAccess.AddCommentMsg{}
+func makeCommentMsg(post db.PetGagPost) (commentMsg db.AddCommentMsg) {
+	commentMsg = db.AddCommentMsg{}
 	commentMsg.BelongsTo = post.BelongsTo
 	commentMsg.DbOp = post.DbOp
 	commentMsg.ImageId = post.ObjID
